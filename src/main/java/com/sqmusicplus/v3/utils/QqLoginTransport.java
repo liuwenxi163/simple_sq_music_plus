@@ -60,7 +60,7 @@ public final class QqLoginTransport {
     public static String readOnlyApi(String url,String payload) throws IOException { return execute(READ_ONLY,url,payload); }
     private static String execute(OkHttpClient client,String url,String payload) throws IOException {
         Request request=new Request.Builder().url(url)
-            .header("Referer","https://y.qq.com")
+            .header("Referer","https://y.qq.com/")
             .header("User-Agent","QQ%E9%9F%B3%E4%B9%90/73222 CFNetwork/1406.0.3 Darwin/22.4.0")
             .post(RequestBody.create(payload,MediaType.get("application/json; charset=utf-8"))).build();
         try(Response response=client.newCall(request).execute()){
