@@ -22,7 +22,9 @@ public class DownloadPanelController {
             case "failed" -> query.eq(DownloadInfo::getDownloadStatus,"error");
             case "all" -> {} default -> throw new IllegalArgumentException("Invalid tab");
         }
-        query.orderByDesc(DownloadInfo::getDownloadUpdateTime);
+        // Keep the transfers visible even when a large sync just appended waiting rows.
+        if("active".equals(tab))query.last("ORDER BY CASE WHEN download_status IN ('loading','supplement') THEN 0 WHEN download_status='retry' THEN 1 ELSE 2 END, download_update_time ASC");
+        else query.orderByDesc(DownloadInfo::getDownloadUpdateTime);
         var result=tasks.page(new Page<>(Math.max(1,page),50),query);var items=new ArrayList<Map<String,Object>>();
         for(var task:result.getRecords()){
             Map<String,Object> item=json.convertValue(task,new TypeReference<Map<String,Object>>(){});
