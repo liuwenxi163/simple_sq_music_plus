@@ -22,7 +22,7 @@ QQ 账号收藏同步在 NAS 服务内每 10 分钟检查一次，可在「我�
 
 每个服务实例最多运行 1 次账号同步，重复触发合并，不创建额外等待队列。新增歌曲按下载设置加入原有 MySQL 下载队列，跨歌单按歌曲和音质去重；已有低音质记录可补充更高音质，失败记录由下载页重试。单首歌曲入队异常会被隔离，其余继续，queueFailures 记录失败数量，缺失任务在下次同步重试。同步上限 200 个歌单、单歌单 5000 首、共 50000 条歌单歌曲引用，单轮读取时间上限 5 分钟；失败或超限保留上次成功快照并显示错误。账号歌单不会因取消收藏而删除 NAS 文件。
 
-下载页读取实际字节回调显示进度、大小、平均速度和标签整理阶段，未知总大小时显示不定进度。已下载从音乐目录索引读取，完成历史保存在 MySQL。实时字节计数在重启后重建，历史不依赖这些内存计数。
+下载页读取实际字节回调显示进度、大小、平均速度和标签整理阶段，未知总大小时显示不定进度。已下载从音乐目录索引读取，完成历史保存在 MySQL。实时字节计数在重启后重建，历史不依赖这些内存计数。单实例启动时，在定时下载线程启动前把上次中断的 loading 任务恢复为 waiting，避免它们空占并发位置 10 分钟；完整文件与历史保留。一个下载数据库只应由一个后端实例管理。
 
 接口（均需 `sqmusic` 登录头）：`GET /api/listening/downloads?tab=active&page=1` 支持 active/completed/failed/all，页大小 50，返回 items/total/page/pageSize，条目含 progress（bytes/total/percent/bytesPerSecond/stage）；总大小未知时 percent 为 null，只有 MySQL 确认完成才为 100。`GET /api/listening/collection` 返回歌单及歌曲快照；`GET /api/listening/collection/status` 返回不含歌曲的轻量状态；`PUT /api/listening/collection` 接受 enabled/autoDownload 布尔值；`POST /api/listening/collection/sync` 合并触发同步并立即返回状态。异步错误在 error 字段报告 QQ_LOGIN_REQUIRED、QQ_NETWORK_UNAVAILABLE、QQ_COLLECTION_UNAVAILABLE、QQ_COLLECTION_INCOMPLETE 、COLLECTION_LIMIT_REACHED 或 DOWNLOAD_QUEUE_PARTIAL，lastSuccess 表示上次完整快照时间。
 
