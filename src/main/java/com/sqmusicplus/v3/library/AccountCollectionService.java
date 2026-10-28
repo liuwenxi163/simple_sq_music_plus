@@ -97,8 +97,9 @@ public class AccountCollectionService {
             List<PlugBrType> types=rows(track,"brTypes").stream().map(t->PlugBrType.valueOf(t.toString())).toList();if(types.isEmpty())continue;
             PlugBrType quality=PlugBrType.findMaxByTypeAndPlugNameAndBits(format,"qqvip",types);if(quality==null)continue;
             if(known.getOrDefault(id,0)>=quality.getBit())continue;
+            String album=track.getString("albumName");if(album==null||album.isBlank())album="单曲";
             PlugSearchMusicResult metadata=new PlugSearchMusicResult().setId(id).setName(track.getString("name")).setArtistName(track.getList("artistName",String.class))
-                .setAlbumName(track.getString("albumName")).setPlugName("qqvip").setBrTypes(types).setDataInfo(new JSONObject());
+                .setAlbumName(album).setPlugName("qqvip").setBrTypes(types).setDataInfo(new JSONObject());
             if(downloads.add(vip.musicToDownloadInfo(metadata,quality,false))){known.put(id,quality.getBit());added++;}
             else throw new IllegalStateException("DOWNLOAD_INSERT_FAILED");
             }catch(Exception error){failures++;failedIds.add(id);lastError=error.getClass().getSimpleName();}

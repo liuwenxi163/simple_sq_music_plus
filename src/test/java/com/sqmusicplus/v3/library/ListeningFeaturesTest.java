@@ -21,11 +21,11 @@ public class ListeningFeaturesTest {
         try{
             var tasks=(com.sqmusicplus.v3.base.service.DownloadInfoService)java.lang.reflect.Proxy.newProxyInstance(ListeningFeaturesTest.class.getClassLoader(),new Class[]{com.sqmusicplus.v3.base.service.DownloadInfoService.class},(proxy,method,input)->{
                 if(method.getName().equals("list"))return List.of();
-                if(method.getName().equals("add")){var task=(com.sqmusicplus.v3.base.entity.DownloadInfo)input[0];if(task.getDownloadMusicId().equals("bad"))throw new IllegalStateException("fixture failure");queued[0]++;return true;}
+                if(method.getName().equals("add")){var task=(com.sqmusicplus.v3.base.entity.DownloadInfo)input[0];if(task.getDownloadMusicId().equals("bad"))throw new IllegalStateException("fixture failure");new com.sqmusicplus.v3.plug.qqvip.QQvipHander().downloadInfoToDbCheck(task);queued[0]++;return true;}
                 throw new AssertionError(method.getName());
             });
             var service=new AccountCollectionService(null,new com.sqmusicplus.v3.plug.qqvip.QQvipHander(),tasks,null,dir.toString());
-            JSONObject bad=JSONObject.parseObject(song.toJSONString());bad.put("id","bad");JSONObject good=JSONObject.parseObject(song.toJSONString());good.put("id","good");
+            JSONObject bad=JSONObject.parseObject(song.toJSONString());bad.put("id","bad");JSONObject good=JSONObject.parseObject(song.toJSONString());good.put("id","good");good.put("albumName","");
             JSONObject list=new JSONObject();list.put("tracks",JSONArray.of(bad,good,bad,good));
             check(service.enqueue(JSONArray.of(list))==1&&queued[0]==1,"One invalid track cannot abort other playlists or duplicate downloads");
             check(service.summary().getIntValue("queueFailures")==1,"Report failed insert count");
