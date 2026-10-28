@@ -21,7 +21,6 @@ import com.sqmusicplus.v3.plug.qqvip.config.QQVipConfig;
 import com.sqmusicplus.v3.plug.qqvip.entity.QQVipSearchEntity;
 import com.sqmusicplus.v3.utils.OkHttpUtils;
 import com.sqmusicplus.v3.utils.StringUtils;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -34,9 +33,9 @@ import java.util.*;
  * @Date 2025/5/26 17:58
  * @Created by SQ
  */
-@Slf4j
 @Component("qqvipHander")
 public class QQvipHander extends SearchHanderAbstract {
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(QQvipHander.class);
     @Autowired
     private QQHander qqHander;
     @Autowired
@@ -166,13 +165,13 @@ public class QQvipHander extends SearchHanderAbstract {
             searchUrl= searchUrl+"?sign="+sign+"&signature="+sign;
         } catch (Exception e) {
         }
-        String data = OkHttpUtils.builder()
-                .url(searchUrl)
-                .addHeader("Content-Type", "json/application;charset=utf-8")
-                .addHeader("Referer", "https://y.qq.com")
-                .addHeader("User-Agent","QQ%E9%9F%B3%E4%B9%90/73222 CFNetwork/1406.0.3 Darwin/22.4.0")
-                .post(true,s)
-                .sync();
+        String data;
+        try {
+            data = com.sqmusicplus.v3.utils.QqLoginTransport.readOnlyApi(searchUrl, s);
+        } catch (java.io.IOException error) {
+            log.warn("QQ_PLAYBACK_UNAVAILABLE error_type={}", error.getClass().getSimpleName());
+            throw new com.sqmusicplus.v3.config.exception.SQException("QQ 音源暂时未响应，请重试播放");
+        }
         JSONObject jsonObject = JSONObject.parseObject(data);
 
         JSONObject mapper1 = jsonObject.getJSONObject("music.vkey.GetVkey.UrlGetVkey");

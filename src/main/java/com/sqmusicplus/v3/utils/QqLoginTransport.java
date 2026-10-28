@@ -23,6 +23,8 @@ public final class QqLoginTransport {
         .eventListenerFactory(QqLoginTransport::listener)
         .addInterceptor(QqLoginTransport::intercept).build();
 
+    private static final OkHttpClient READ_ONLY=EXCHANGE.newBuilder().callTimeout(18,TimeUnit.SECONDS).build();
+
     public static final class Trace extends EventListener {
         volatile boolean headersStarted;
         @Override public void requestHeadersStart(Call call){headersStarted=true;}
@@ -54,12 +56,14 @@ public final class QqLoginTransport {
             if(t instanceof CertificateException || t instanceof SSLPeerUnverifiedException)return true;
         return false;
     }
-    public static String exchange(String url,String payload) throws IOException {
+    public static String exchange(String url,String payload) throws IOException { return execute(EXCHANGE,url,payload); }
+    public static String readOnlyApi(String url,String payload) throws IOException { return execute(READ_ONLY,url,payload); }
+    private static String execute(OkHttpClient client,String url,String payload) throws IOException {
         Request request=new Request.Builder().url(url)
             .header("Referer","https://y.qq.com")
             .header("User-Agent","QQ%E9%9F%B3%E4%B9%90/73222 CFNetwork/1406.0.3 Darwin/22.4.0")
             .post(RequestBody.create(payload,MediaType.get("application/json; charset=utf-8"))).build();
-        try(Response response=EXCHANGE.newCall(request).execute()){
+        try(Response response=client.newCall(request).execute()){
             if(!response.isSuccessful() || response.body()==null)throw new IOException("QQ login HTTP failure status="+response.code());
             return response.body().string();
         }

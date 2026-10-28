@@ -141,6 +141,14 @@ public class MusicController {
         if (brType==null){
             throw new SQException("未知的音频质量");
         }
+        if ("qq".equals(param.getPlugName()) || "qqvip".equals(param.getPlugName())) {
+            // Vkey lookup needs only song ID and quality. Full metadata also fetches lyrics,
+            // so repeating it here can block the audio behind unrelated Tencent requests.
+            DownloadInfo playback = new DownloadInfo().setDownloadMusicId(param.getId())
+                    .setDownloadBrType(brType.getId()).setDownloadPlugName(param.getPlugName())
+                    .setSpringName(brType.getSpringName());
+            return AjaxResult.success(plugHander.getDownloadUrl(playback));
+        }
         Music music = plugHander.querySongById(param.getId());
         // Playback must honor its requested quality, independently of download preferences.
         PlugSearchMusicResult playback = new PlugSearchMusicResult()

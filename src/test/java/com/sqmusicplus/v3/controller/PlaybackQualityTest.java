@@ -13,8 +13,9 @@ import java.util.List;
 /** Calls the actual playback endpoint and real quality conversion, without external music requests. */
 public class PlaybackQualityTest {
     static class Source extends QQvipHander {
-        DownloadInfo received;
+        DownloadInfo received;int metadataCalls;
         @Override public Music querySongById(String id) {
+            metadataCalls++;
             return new Music().setId(id).setMusicName("Test").setMusicArtists(List.of("Artist"))
                 .setMusicAlbum("Album").setDataInfo(new JSONObject())
                 .setBits(List.of(PlugBrType.QQVIP_Flac_2000,PlugBrType.QQVIP_MP3_320,PlugBrType.QQVIP_MP3_128));
@@ -38,7 +39,8 @@ public class PlaybackQualityTest {
                     if(!preference.equals(SqConfigCache.getSqConfigValue(SetConfigEnum.SYSTEM_DOWNLOAD_FILE_AUDIO_FORMAT)))throw new AssertionError("Playback changed download settings");
                 }
             }
-            System.out.println("PLAYBACK_QUALITY_TESTS passed=12");
+            if(source.metadataCalls!=0)throw new AssertionError("QQ playback waited for unrelated metadata/lyrics");
+            System.out.println("PLAYBACK_QUALITY_TESTS passed=13");
         }finally{SqConfigCache.sqConfigMap.clear();SqConfigCache.sqConfigMap.putAll(previous);}
     }
 }
