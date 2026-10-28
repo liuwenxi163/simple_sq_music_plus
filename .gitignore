@@ -46,3 +46,5 @@ vue/package-lock.json
 ./.codebuddy/**
 .codebuddy/
 AGENTS.md
+/release/
+__pycache__/

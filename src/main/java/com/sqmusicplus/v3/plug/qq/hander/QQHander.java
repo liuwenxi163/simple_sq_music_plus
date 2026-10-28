@@ -24,7 +24,6 @@ import com.sqmusicplus.v3.plug.qq.enums.QRCodeLoginEvents;
 import com.sqmusicplus.v3.plug.qq.util.QQMusicUtil;
 import com.sqmusicplus.v3.utils.OkHttpUtils;
 import com.sqmusicplus.v3.utils.StringUtils;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -39,9 +38,9 @@ import java.util.concurrent.*;
  * @Date 2023/8/25 9:18
  * @Created by SQ
  */
-@Slf4j
 @Service("qqHander")
 public class QQHander extends SearchHanderAbstract {
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(QQHander.class);
 
     @Autowired
     private QQConfig config;
@@ -532,19 +531,18 @@ public class QQHander extends SearchHanderAbstract {
     public QQMusicCookieInfo getCookieByCode(String code) {
         String cookieByCodeParam = qqSearchEntity.getCookieByCodeParam(code);
         String searchUrl = getConfig().getSearchUrl();
-        String data = OkHttpUtils.builder()
-                .url(searchUrl)
-                .addHeader("Content-Type", "json/application;charset=utf-8")
-                .addHeader("Referer", "https://y.qq.com")
-                .addHeader("User-Agent","QQ%E9%9F%B3%E4%B9%90/73222 CFNetwork/1406.0.3 Darwin/22.4.0")
-                .post(true,cookieByCodeParam)
-                .sync();
-        QQMusicCookieInfo cookieByCode = qqSearchEntity.getCookieByCode(data);
-        if (cookieByCode != null){
-            saveCookie(cookieByCode);
+        try {
+            String data=com.sqmusicplus.v3.utils.QqLoginTransport.exchange(searchUrl,cookieByCodeParam);
+            QQMusicCookieInfo cookieByCode=qqSearchEntity.getCookieByCode(data);
+            if(cookieByCode!=null) saveCookie(cookieByCode);
+            else log.warn("QQ_LOGIN_FAILED phase=exchange reason=upstream_rejected");
+            return cookieByCode;
+        } catch(java.io.IOException | RuntimeException error) {
+            log.warn("QQ_LOGIN_FAILED phase=exchange error_type={}",error.getClass().getSimpleName());
+            return null;
         }
-        return cookieByCode;
     }
+
     public QQMusicCookieInfo getWechatCookieByCode(String code) {
         String qqWechatLoginParam = qqSearchEntity.getQQWechatLoginParam(code);
         try {
@@ -619,6 +617,9 @@ public class QQHander extends SearchHanderAbstract {
                             // 任务失败，重新提交任务
                             qrCodeCheckFuture = executorService.submit(task);
                         }
+                    } catch (RuntimeException error) {
+                        log.warn("QQ_LOGIN_FAILED phase=authorization error_type={}",error.getClass().getSimpleName());
+                        break;
                     } catch (InterruptedException | ExecutionException e) {
                         log.error("获取QQ二维码检查任务结果时发生错误", e);
                         Thread.currentThread().interrupt(); // 恢复中断状态

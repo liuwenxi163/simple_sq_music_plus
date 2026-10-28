@@ -1,0 +1,46 @@
+name: SQ Music backend and LyricFlow release
+on:
+  push:
+    branches: ['3.0']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: sqmusic-backend-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Worker boundaries
+        run: python -m unittest discover -s lyricflow-worker -p 'test_*.py' -v
+      - name: Compile overlay and test QQ transport
+        run: |
+          docker run --rm -v "$PWD:/source" --entrypoint sh registry.cn-hangzhou.aliyuncs.com/sqdockler/simple_sq_music_plus@sha256:4f3e499c07da526bea5648fc4e1b9c449e363356c5e8c1ef4d96c2d67b1e20f2 /source/scripts/build-overlay.sh
+          sudo chown -R "$USER" release
+      - name: Package independent worker
+        run: python scripts/package-worker.py
+      - name: Publish immutable artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="listening-${GITHUB_SHA}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          gh release create "$TAG" release/backend.tar.gz release/worker.tar.gz --target "$GITHUB_SHA" --title "Listening backend ${GITHUB_SHA:0:8}" --notes 'QQ transport recovery, local music library and independently licensed LyricFlow worker. Music files and database are external persistent mounts.'
+      - name: Publish verified references to private GitOps
+        if: vars.NAS_GITOPS_REPO != ''
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.NAS_GITOPS_REPO }}
+          ref: main
+          path: gitops
+          ssh-key: ${{ secrets.NAS_GITOPS_KEY }}
+      - name: Update desired release
+        if: vars.NAS_GITOPS_REPO != ''
+        run: |
+          python -m pip install PyYAML==6.0.3
+          python scripts/update-gitops.py gitops backend ${{ github.repository }} "$TAG" release

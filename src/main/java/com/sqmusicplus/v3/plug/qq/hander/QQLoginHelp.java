@@ -51,10 +51,13 @@ public class QQLoginHelp {
             .readTimeout(20, TimeUnit.SECONDS)
             .hostnameVerifier((hostName, session) -> true)
             .protocols(Arrays.asList(Protocol.HTTP_2, Protocol.HTTP_1_1))
-            .retryOnConnectionFailure(true)
+            .retryOnConnectionFailure(false)
             .followRedirects(false)
             .followSslRedirects(false)
             .sslSocketFactory(createSSLSocketFactory(trustManagers), (X509TrustManager) trustManagers[0])
+            .eventListenerFactory(com.sqmusicplus.v3.utils.QqLoginTransport::listener)
+            .addInterceptor(com.sqmusicplus.v3.utils.QqLoginTransport::intercept)
+            .callTimeout(60, TimeUnit.SECONDS)
             .cookieJar(new CookieJar() {
                 @Override
                 public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
