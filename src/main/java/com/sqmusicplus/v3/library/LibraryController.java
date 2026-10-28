@@ -6,7 +6,6 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import java.nio.file.*;
 import java.util.*;
 
@@ -33,16 +32,15 @@ public class LibraryController {
     @PostMapping("/ticket/{id}") public AjaxResult ticket(@PathVariable("id") String id) throws Exception {
         String ticket=library.ticket(id);return AjaxResult.success(Map.of("url","/api/library/stream/"+id+"?ticket="+ticket,"expiresIn",3600));
     }
-    private void authorize(String id,String ticket){if(!library.valid(id,ticket))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Invalid media ticket");}
     @RequireLogin(false)
     @GetMapping("/stream/{id}") public ResponseEntity<Resource> stream(@PathVariable("id") String id,@RequestParam(name="ticket",required=false) String ticket) throws Exception {
-        authorize(id,ticket);Path path=library.file(id);String type=Files.probeContentType(path);if(type==null)type="application/octet-stream";
+        if(!library.valid(id,ticket))return ResponseEntity.status(HttpStatus.FORBIDDEN).build();Path path=library.file(id);String type=Files.probeContentType(path);if(type==null)type="application/octet-stream";
         return ResponseEntity.ok().header(HttpHeaders.ACCEPT_RANGES,"bytes").header(HttpHeaders.CACHE_CONTROL,"private, max-age=0")
             .contentType(MediaType.parseMediaType(type)).contentLength(Files.size(path)).body(new FileSystemResource(path));
     }
     @RequireLogin(false)
     @GetMapping("/cover/{id}") public ResponseEntity<byte[]> cover(@PathVariable("id") String id,@RequestParam(name="ticket",required=false) String ticket) throws Exception {
-        authorize(id,ticket);byte[] bytes=library.cover(id);if(bytes.length==0)return ResponseEntity.notFound().build();
+        if(!library.valid(id,ticket))return ResponseEntity.status(HttpStatus.FORBIDDEN).build();byte[] bytes=library.cover(id);if(bytes.length==0)return ResponseEntity.notFound().build();
         String type=bytes.length>8 && bytes[0]==(byte)0x89?"image/png":bytes.length>12 && bytes[0]=='R'?"image/webp":"image/jpeg";
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(type)).header(HttpHeaders.CACHE_CONTROL,"private, max-age=300").body(bytes);
     }
