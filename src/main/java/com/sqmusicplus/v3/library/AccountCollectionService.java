@@ -32,7 +32,8 @@ public class AccountCollectionService {
         state.putIfAbsent("enabled",false);state.putIfAbsent("autoDownload",true);state.putIfAbsent("playlists",new JSONArray());
     }
     public synchronized JSONObject status(){JSONObject copy=JSONObject.parseObject(state.toJSONString());copy.put("running",running.get());copy.put("intervalMinutes",10);copy.remove("accountKey");return copy;}
-    public synchronized JSONObject summary(){JSONObject copy=new JSONObject();for(String key:List.of("enabled","autoDownload","lastAttempt","lastSuccess","error","trackCount","queuedLastRun"))if(state.containsKey(key))copy.put(key,state.get(key));copy.put("running",running.get());copy.put("intervalMinutes",10);return copy;}
+    public synchronized JSONObject summary(){JSONObject copy=new JSONObject();for(String key:List.of("enabled","autoDownload","lastAttempt","lastSuccess","error","trackCount","queuedLastRun","phase"))if(state.containsKey(key))copy.put(key,state.get(key));copy.put("running",running.get());copy.put("intervalMinutes",10);return copy;}
+    private synchronized void phase(String message){state.put("phase",message);}
     public synchronized JSONObject configure(boolean enabled,boolean autoDownload)throws Exception{state.put("enabled",enabled);state.put("autoDownload",autoDownload);persist();return status();}
     private synchronized void persist()throws Exception{
         Files.createDirectories(file.getParent());Path temp=file.resolveSibling(file.getFileName()+".tmp");Files.writeString(temp,state.toJSONString());
@@ -70,13 +71,16 @@ public class AccountCollectionService {
         result.put("brTypes",qualities);return result;
     }
     private JSONArray fetchSongs(JSONObject list,JSONObject cookie,long deadline)throws Exception{
-        JSONArray songs=new JSONArray();Set<String> seen=new HashSet<>();long total=Long.MAX_VALUE;
-        for(long page=1;songs.size()<total;page++){
+        JSONArray songs=new JSONArray();Set<String> seen=new HashSet<>(),pages=new HashSet<>();long total=Long.MAX_VALUE,processed=0;
+        for(long page=1;processed<total;page++){
             if(page>100||System.currentTimeMillis()>deadline)throw new IllegalStateException("COLLECTION_LIMIT_REACHED");
+            phase("读取歌单："+list.getString("name")+"，第 "+page+" 页");
             JSONObject data=request(qq.getqqSearchEntity().songListInfoRequestParam(list.getString("remoteId"),list.getString("dirId"),page,50L),cookie);
             JSONArray batch=rows(data,"songlist");if(!data.containsKey("total_song_num"))throw new IllegalStateException("QQ_COLLECTION_UNAVAILABLE");total=data.getLongValue("total_song_num");
-            int added=0;for(Object entry:batch){JSONObject track=song((JSONObject)entry);if(track!=null&&seen.add(track.getString("id"))){songs.add(track);added++;}}
-            if(batch.isEmpty()||added==0){if(songs.size()<total)throw new IllegalStateException("QQ_COLLECTION_INCOMPLETE");break;}
+            if(!batch.isEmpty()&&!pages.add(batch.toJSONString()))throw new IllegalStateException("QQ_COLLECTION_INCOMPLETE");
+            for(Object entry:batch){JSONObject track=song((JSONObject)entry);if(track!=null&&seen.add(track.getString("id")))songs.add(track);}
+            processed+=batch.size();
+            if(batch.isEmpty()){if(processed<total)throw new IllegalStateException("QQ_COLLECTION_INCOMPLETE");break;}
         }
         return songs;
     }
@@ -105,11 +109,12 @@ public class AccountCollectionService {
             JSONObject cookie=JSONObject.parseObject(raw);String account=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(cookie.getString("musicid").getBytes(StandardCharsets.UTF_8)));
             String key=cookie.getString("musickey"),uin=cookie.getString("musicid"),login=cookie.getString("loginType");var helper=qq.getqqSearchEntity();
             LinkedHashMap<String,JSONObject> catalog=new LinkedHashMap<>();
-            JSONObject own=request(helper.userSelfSongListParam(uin,key,login),cookie);
+            phase("读取自建歌单与我喜欢");JSONObject own=request(helper.userSelfSongListParam(uin,key,login),cookie);
             if(!own.containsKey("v_playlist"))throw new IllegalStateException("QQ_COLLECTION_UNAVAILABLE");
-            if(own.containsKey("bFinish")&&!own.getBooleanValue("bFinish"))throw new IllegalStateException("QQ_COLLECTION_INCOMPLETE");
+            if(own.getLongValue("total")>rows(own,"v_playlist").size())throw new IllegalStateException("QQ_COLLECTION_INCOMPLETE");
             for(Object item:rows(own,"v_playlist")){JSONObject list=playlist((JSONObject)item,true);if(list!=null)catalog.put(list.getString("id"),list);}
             for(int page=1;page<=100;page++){
+                phase("读取收藏歌单，第 "+page+" 页");
                 JSONObject payload=JSONObject.parseObject(helper.followSongListParam(uin,key,login,cookie.getString("encryptUin"),50,page));
                 payload.getJSONObject("req").getJSONObject("param").put("offset",(page-1)*50);
                 JSONObject data=request(payload.toJSONString(),cookie);JSONArray batch=rows(data,"v_list");
@@ -123,8 +128,8 @@ public class AccountCollectionService {
                 list.put("tracks",tracks);list.put("count",tracks.size());lists.add(list);
             }
             synchronized(this){state.put("accountKey",account);state.put("playlists",lists);state.put("lastSuccess",Instant.now().toString());state.put("trackCount",references);persist();}
-            int queued=status().getBooleanValue("autoDownload")?enqueue(lists):0;
-            synchronized(this){state.put("queuedLastRun",queued);persist();}
+            phase("添加新增下载任务");int queued=status().getBooleanValue("autoDownload")?enqueue(lists):0;
+            synchronized(this){state.put("queuedLastRun",queued);state.put("phase","同步完成");persist();}
             library.scan();
         }catch(Exception error){
             synchronized(this){state.put("error",error instanceof java.io.IOException?"QQ_NETWORK_UNAVAILABLE":error.getMessage()!=null&&error.getMessage().matches("[A-Z_]+")?error.getMessage():"QQ_COLLECTION_UNAVAILABLE");try{persist();}catch(Exception ignored){}}
