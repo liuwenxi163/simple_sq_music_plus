@@ -11,7 +11,6 @@ import com.sqmusicplus.v3.config.AjaxResult;
 import com.sqmusicplus.v3.config.exception.SQException;
 import com.sqmusicplus.v3.plug.base.hander.SearchHanderAbstract;
 import com.sqmusicplus.v3.utils.MusicUtils;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,7 +23,6 @@ import java.util.List;
  * @Date 2025/7/24 17:33
  * @Created by SQ
  */
-@Slf4j
 @RestController
 @RequestMapping("/api/music")
 public class MusicController {
@@ -144,8 +142,13 @@ public class MusicController {
             throw new SQException("未知的音频质量");
         }
         Music music = plugHander.querySongById(param.getId());
-        music.setBits(param.getBrTypes());
-        DownloadInfo downloadInfo = plugHander.musicToDownloadInfo(music, brType, false);
+        // Playback must honor its requested quality, independently of download preferences.
+        PlugSearchMusicResult playback = new PlugSearchMusicResult()
+                .setId(music.getId()).setName(music.getMusicName())
+                .setArtistName(music.getMusicArtists()).setAlbumName(music.getMusicAlbum())
+                .setDataInfo(music.getDataInfo()).setPlugName(param.getPlugName())
+                .setBrTypes(music.getBits() == null ? List.of(brType) : music.getBits());
+        DownloadInfo downloadInfo = plugHander.musicToDownloadInfo(playback, brType, false);
         DownloadUrlResult downloadUrl = plugHander.getDownloadUrl(downloadInfo);
         return AjaxResult.success(downloadUrl);
     }
