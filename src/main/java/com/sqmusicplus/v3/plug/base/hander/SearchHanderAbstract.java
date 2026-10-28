@@ -48,6 +48,7 @@ import java.util.stream.IntStream;
 @Service
 @Slf4j
 public abstract class SearchHanderAbstract implements SearchHander, Serializable {
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(SearchHanderAbstract.class);
 
 
 
@@ -350,7 +351,7 @@ public abstract class SearchHanderAbstract implements SearchHander, Serializable
             //临时复制年份
             String finalAlbumYear = albumYear;
             DownloadUtils.download(downloadUrlResult.getUrl(), type, onProcess->{
-//                log.debug("歌曲：{} 进度：{} , byte信息：{}/{}",music.getMusicName(),onProcess.getProgress(),onProcess.getBytesRead(),onProcess.getTotalBytes());
+com.sqmusicplus.v3.library.DownloadTelemetry.update(downloadInfo.getId(),onProcess.getBytesRead(),onProcess.getTotalBytes());
             },onSuccess ->
             {
                 log.info("歌曲：{} 文件下载完成处理后续步骤",music.getMusicName());
