@@ -13,7 +13,6 @@ import com.sqmusicplus.v3.plug.qq.entity.QQMusicQr;
 import com.sqmusicplus.v3.plug.qq.hander.QQHander;
 import com.sqmusicplus.v3.plug.qqvip.QQvipHander;
 import com.sqmusicplus.v3.utils.StringUtils;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,7 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
  * @Date 2025/8/1 17:21
  * @Created by SQ
  */
-@Slf4j
 @RestController
 @RequestMapping("/api/plug")
 public class PlugController {
@@ -148,14 +146,16 @@ public class PlugController {
         if (sqConfig.getConfigValue().equals(DbBooleanConvert.YES.getBooleanValue().toString())){
             SqConfig sqConfigCookie = SqConfigCache.getSqConfig(SetConfigEnum.PLUG_QQVIP_COOKIE.getKey());
             if (sqConfigCookie != null && StringUtils.isNotBlank(sqConfigCookie.getConfigValue())) {
-                QQMusicCookieInfo qqMusicCookieInfo = qqHander.refreshToken();
-                if (qqMusicCookieInfo != null) {
-                    return AjaxResult.success("成功", "扫码成功");
-                }else{
-                    return AjaxResult.error("失败请稍等或者重新扫码");
+                try {
+                    if (Boolean.TRUE.equals(qqHander.checkLoginStatus())) {
+                        return AjaxResult.success("成功", "扫码成功");
+                    }
+                    return AjaxResult.error("当前 QQ 登录已失效，请重新扫码");
+                } catch (java.io.IOException | RuntimeException error) {
+                    return AjaxResult.error("QQ 平台暂时无法验证，已保存的登录信息仍保留，请稍后再检测");
                 }
             } else {
-                return AjaxResult.error("失败请稍等或者重新扫码");
+                return AjaxResult.error("QQ 登录尚未完成，请在手机确认后稍后检测");
             }
         }
         return AjaxResult.error("qqvip插件未开启");
@@ -165,11 +165,21 @@ public class PlugController {
      */
     @GetMapping("/qqvip/refreshQQvipCookie")
     public AjaxResult refreshQQvipCookies(){
-            QQMusicCookieInfo qqMusicCookieInfo = qqHander.refreshToken();
-            if (qqMusicCookieInfo != null) {
-                return AjaxResult.success("成功", "刷新成功");
+        String saved = SqConfigCache.getSqConfigValue(SetConfigEnum.PLUG_QQVIP_COOKIE);
+        if (StringUtils.isBlank(saved)) return AjaxResult.error("请先扫码登录 QQ 音乐");
+        try {
+            QQMusicCookieInfo current = com.alibaba.fastjson2.JSONObject.parseObject(saved, QQMusicCookieInfo.class);
+            if (current != null && StringUtils.isBlank(current.getRefreshKey())) {
+                if (Boolean.TRUE.equals(qqHander.checkLoginStatus())) {
+                    return AjaxResult.success("成功", "登录仍有效，无需刷新；过期后重新扫码即可");
+                }
+                return AjaxResult.error("当前 QQ 登录已失效，请重新扫码");
             }
-        return AjaxResult.error("登录信息失效请重新扫码登录！");
+            if (qqHander.refreshToken() != null) return AjaxResult.success("成功", "刷新成功");
+            return AjaxResult.error("QQ 暂未完成凭据刷新，现有登录信息已保留");
+        } catch (java.io.IOException | RuntimeException error) {
+            return AjaxResult.error("QQ 平台暂时无法验证，现有登录信息已保留");
+        }
     }
 
 }

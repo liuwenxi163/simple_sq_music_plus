@@ -639,28 +639,25 @@ public class QQHander extends SearchHanderAbstract {
      * 获取登录状态是否有效
      */
     public Boolean getLoginStatus() {
-        String sqConfig = SqConfigCache.getSqConfigValue(SetConfigEnum.PLUG_QQVIP_COOKIE);
-
-        if (StringUtils.isNotBlank(sqConfig)){
-            QQMusicCookieInfo qqMusicCookieInfo = JSONObject.parseObject(sqConfig, QQMusicCookieInfo.class);
-            if (qqMusicCookieInfo != null){
-                String checkCookieParam = qqSearchEntity.checkCookieParam(qqMusicCookieInfo);
-                String searchUrl = getConfig().getSearchUrl();
-                String data = OkHttpUtils.builder()
-                        .url(searchUrl)
-                        .addHeader("Content-Type", "json/application;charset=utf-8")
-                        .addHeader("Referer", "https://y.qq.com")
-                        .addHeader("User-Agent","QQ%E9%9F%B3%E4%B9%90/73222 CFNetwork/1406.0.3 Darwin/22.4.0")
-                        .post(true,checkCookieParam)
-                        .sync();
-                QQMuserUserInfo qqMuserUserInfo = qqSearchEntity.checkCookie(data);
-                if (qqMuserUserInfo != null&&qqMuserUserInfo.getCode().longValue()==0L){
-                    return true;
-                }
-            }
+        try { return checkLoginStatus(); }
+        catch (java.io.IOException | RuntimeException error) {
+            log.warn("QQ_LOGIN_CHECK_UNAVAILABLE error_type={}", error.getClass().getSimpleName());
+            return false;
         }
-        return false;
     }
+
+    /** Read-only verification; never refreshes, replaces or deletes credentials. */
+    public Boolean checkLoginStatus() throws java.io.IOException {
+        String saved = SqConfigCache.getSqConfigValue(SetConfigEnum.PLUG_QQVIP_COOKIE);
+        if (StringUtils.isBlank(saved)) return false;
+        QQMusicCookieInfo cookie = JSONObject.parseObject(saved, QQMusicCookieInfo.class);
+        if (cookie == null || StringUtils.isBlank(cookie.getMusicid()) || StringUtils.isBlank(cookie.getMusickey())) return false;
+        String payload = qqSearchEntity.checkCookieParam(cookie);
+        String response = com.sqmusicplus.v3.utils.QqLoginTransport.exchange(getConfig().getSearchUrl(), payload);
+        QQMuserUserInfo info = qqSearchEntity.checkCookie(response);
+        return info != null && info.getCode() != null && info.getCode().longValue() == 0L;
+    }
+
     /**
      * 刷新token
      */
@@ -669,15 +666,20 @@ public class QQHander extends SearchHanderAbstract {
         if (StringUtils.isNotBlank(sqConfig)){
             QQMusicCookieInfo qqMusicCookieInfo = JSONObject.parseObject(sqConfig, QQMusicCookieInfo.class);
             if (qqMusicCookieInfo != null){
+                // OAuth QQLogin can provide a valid musickey without this other refresh API's refresh_key.
+                if (StringUtils.isBlank(qqMusicCookieInfo.getRefreshKey())) {
+                    log.info("QQ_REFRESH_SKIPPED reason=refresh_key_missing");
+                    return qqMusicCookieInfo;
+                }
                 String refreshTokenParam = qqSearchEntity.refreshCookieParam(qqMusicCookieInfo);
                 String searchUrl = getConfig().getSearchUrl();
-                String data = OkHttpUtils.builder()
-                        .url(searchUrl)
-                        .addHeader("Content-Type", "json/application;charset=utf-8")
-                        .addHeader("Referer", "https://y.qq.com")
-                        .addHeader("User-Agent","QQ%E9%9F%B3%E4%B9%90/73222 CFNetwork/1406.0.3 Darwin/22.4.0")
-                        .post(true,refreshTokenParam)
-                        .sync();
+                String data;
+                try {
+                    data = com.sqmusicplus.v3.utils.QqLoginTransport.exchange(searchUrl, refreshTokenParam);
+                } catch (java.io.IOException error) {
+                    log.warn("QQ_REFRESH_UNAVAILABLE error_type={}", error.getClass().getSimpleName());
+                    return null;
+                }
                 QQMusicCookieInfo qqMusicCookieInfo1 = qqSearchEntity.refreshCookie(data);
                 if (qqMusicCookieInfo1 != null){
                     saveCookie(qqMusicCookieInfo1);
