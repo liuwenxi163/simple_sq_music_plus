@@ -29,5 +29,5 @@ public class EnrichmentController {
     }
     @GetMapping("/jobs") public AjaxResult jobs(){return call("/jobs",null);}
     @PostMapping("/jobs") public AjaxResult submit(@RequestBody Map<String,Object> body){return call("/jobs",body);}
-    @PostMapping("/jobs/{id}/retry") public AjaxResult retry(@PathVariable String id){if(!id.matches("[a-f0-9]{32}"))return AjaxResult.error("任务不存在");return call("/jobs/"+id+"/retry",Map.of());}
+    @PostMapping("/jobs/{id}/retry") public AjaxResult retry(@PathVariable("id") String id){if(!id.matches("[a-f0-9]{32}"))return AjaxResult.error("任务不存在");return call("/jobs/"+id+"/retry",Map.of());}
 }
