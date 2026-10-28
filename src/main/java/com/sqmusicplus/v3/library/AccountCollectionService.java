@@ -32,7 +32,7 @@ public class AccountCollectionService {
         state.putIfAbsent("enabled",false);state.putIfAbsent("autoDownload",true);state.putIfAbsent("playlists",new JSONArray());
     }
     public synchronized JSONObject status(){JSONObject copy=JSONObject.parseObject(state.toJSONString());copy.put("running",running.get());copy.put("intervalMinutes",10);copy.remove("accountKey");return copy;}
-    public synchronized JSONObject summary(){JSONObject copy=new JSONObject();for(String key:List.of("enabled","autoDownload","lastAttempt","lastSuccess","error","trackCount","queuedLastRun","phase"))if(state.containsKey(key))copy.put(key,state.get(key));copy.put("running",running.get());copy.put("intervalMinutes",10);return copy;}
+    public synchronized JSONObject summary(){JSONObject copy=new JSONObject();for(String key:List.of("enabled","autoDownload","lastAttempt","lastSuccess","error","trackCount","queuedLastRun","queueFailures","queueErrorType","phase"))if(state.containsKey(key))copy.put(key,state.get(key));copy.put("running",running.get());copy.put("intervalMinutes",10);return copy;}
     private synchronized void phase(String message){state.put("phase",message);}
     public synchronized JSONObject configure(boolean enabled,boolean autoDownload)throws Exception{state.put("enabled",enabled);state.put("autoDownload",autoDownload);persist();return status();}
     private synchronized void persist()throws Exception{
@@ -84,21 +84,26 @@ public class AccountCollectionService {
         }
         return songs;
     }
-    private int enqueue(JSONArray lists)throws Exception{
+    int enqueue(JSONArray lists)throws Exception{
         // Include pending and failed rows in the identity set; failed tasks are
         // retried explicitly, never reinserted on every synchronization tick.
         Map<String,Integer> known=new HashMap<>();
         for(DownloadInfo row:downloads.list(new LambdaQueryWrapper<DownloadInfo>().eq(DownloadInfo::getDownloadPlugName,"qqvip"))){PlugBrType type=PlugBrType.findById(row.getDownloadBrType());if(type!=null)known.merge(row.getDownloadMusicId(),type.getBit(),Math::max);}
-        int added=0;String format=SqConfigCache.getSqConfigValue(SetConfigEnum.SYSTEM_DOWNLOAD_FILE_AUDIO_FORMAT);if(format==null||format.isBlank())format="auto";
+        int added=0,failures=0;String lastError="";Set<String> failedIds=new HashSet<>();String format=SqConfigCache.getSqConfigValue(SetConfigEnum.SYSTEM_DOWNLOAD_FILE_AUDIO_FORMAT);if(format==null||format.isBlank())format="auto";
         for(Object item:lists)for(Object entry:rows((JSONObject)item,"tracks")){
             JSONObject track=(JSONObject)entry;String id=track.getString("id");
+            if(failedIds.contains(id))continue;
+            try{
             List<PlugBrType> types=rows(track,"brTypes").stream().map(t->PlugBrType.valueOf(t.toString())).toList();if(types.isEmpty())continue;
             PlugBrType quality=PlugBrType.findMaxByTypeAndPlugNameAndBits(format,"qqvip",types);if(quality==null)continue;
             if(known.getOrDefault(id,0)>=quality.getBit())continue;
             PlugSearchMusicResult metadata=new PlugSearchMusicResult().setId(id).setName(track.getString("name")).setArtistName(track.getList("artistName",String.class))
                 .setAlbumName(track.getString("albumName")).setPlugName("qqvip").setBrTypes(types).setDataInfo(new JSONObject());
             if(downloads.add(vip.musicToDownloadInfo(metadata,quality,false))){known.put(id,quality.getBit());added++;}
+            else throw new IllegalStateException("DOWNLOAD_INSERT_FAILED");
+            }catch(Exception error){failures++;failedIds.add(id);lastError=error.getClass().getSimpleName();}
         }
+        synchronized(this){state.put("queueFailures",failures);state.put("queueErrorType",lastError);if(failures>0)state.put("error","DOWNLOAD_QUEUE_PARTIAL");}
         return added;
     }
     private void sync(){
