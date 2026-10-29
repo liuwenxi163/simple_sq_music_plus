@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | GET /api/listening/platforms | 无 | accounts：验证登录的 QQ/网易云；errors：已配置但无法确认的状态 |
 | GET /api/listening/platforms/{provider}/daily | provider=qqvip/netease | 当日 tracks、date、本人 playlists、likedIds；未登录/无推荐明确失败 |
+| GET /api/listening/platforms/{provider}/guess | provider=qqvip，refresh=false/true | 独立猜你喜欢；最多 20 首、updatedAt、refreshAvailableAt、partial、本人歌单和 likedIds |
 | GET /api/listening/platforms/{provider}/library | 同上 | 当前账号本人歌单和喜欢 ID，不含账号标识 |
 | POST /api/listening/platforms/{provider}/like | id: 平台歌曲 ID，like: boolean | 写入我喜欢/取消喜欢，确认后的 confirmed；未知结果不报成功 |
 | POST /api/listening/platforms/{provider}/playlists/{id}/tracks | id 路径为歌单 ID；正文 id 为同平台歌曲 ID | 写前重新核对本人目录，写后读回确认，拒绝收藏的他人歌单 |
@@ -240,3 +241,6 @@ ${album}/${musicName} - ${artists}  ------------专辑/歌曲名称 - 歌手名�
 4. 本工具作者不对使用者的任何使用行为承担法律责任，如使用者违反版权相关法律法规产生纠纷、赔偿、行政处罚等一切后果，均由使用者本人独立承担。
 5. 如果您不同意本免责声明，请立即停止使用本工具。
 
+
+
+QQ 猜你喜欢使用 `music.radioProxy.MbTrackRadioSvr/get_radio_track`，固定电台 99，始终携带当前已验证的账号凭据。与每日推荐接口独立，最多 4 次顺序读取并按歌曲 MID 去重，返回实际可用数量；已有结果遇到后续上游失败时标记 partial。缓存按凭据隔离 5 分钟，手动换批最短间隔 30 秒；上一批只保留最多 20 个 ID 用于新批次排重。该读取使用现有 HTTP 请求线程，没有新增后台队列或改动下载并发。空推荐明确报错，不回退每日推荐或热门歌曲。平台目录和日推缓存策略保持原样，QQ 额外保留一份猜你喜欢缓存。

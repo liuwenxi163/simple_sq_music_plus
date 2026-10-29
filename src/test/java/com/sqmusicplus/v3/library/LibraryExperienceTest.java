@@ -27,9 +27,10 @@ public class LibraryExperienceTest {
             QQHander qq=new QQHander(){@Override public Boolean checkLoginStatus(){return true;}};var field=QQHander.class.getDeclaredField("qqSearchEntity");field.setAccessible(true);field.set(qq,new com.sqmusicplus.v3.plug.qq.entity.QQSearchEntity());
             AccountCollectionService snapshots=new AccountCollectionService(null,null,null,null,dir.toString());
             class Fake extends PlatformMusicService {
-                Set<String> liked=new HashSet<>(Set.of("old"));int writes;boolean accept=true;
+                Set<String> liked=new HashSet<>(Set.of("old"));int writes,guessCalls;boolean accept=true;
                 Fake(){super(qq,null,snapshots);}
                 @Override JSONObject q(JSONObject c,String module,String method,JSONObject param){
+                    if(method.equals("get_radio_track")){guessCalls++;JSONArray tracks=new JSONArray();for(int i=0;i<5;i++)tracks.add(JSONObject.of("id",guessCalls*10+i,"mid","radio"+guessCalls+i,"name","Recommendation","album",JSONObject.of("mid","album","name","Album")));return JSONObject.of("tracks",tracks);}
                     if(method.equals("GetPlaylistByUin"))return JSONObject.of("total",1,"v_playlist",JSONArray.of(JSONObject.of("tid","42","dirId","201","dirName","Likes")));
                     if(method.equals("CgiGetDiss")){JSONArray songs=new JSONArray();for(String id:liked)songs.add(JSONObject.of("mid",id,"name","Song","id",55,"album",JSONObject.of("mid","album","name","Album")));return JSONObject.of("total_song_num",songs.size(),"songlist",songs);}
                     return JSONObject.of("track_info",JSONObject.of("mid",param.getString("song_mid"),"id",55,"name","Song","album",JSONObject.of("mid","album","name","Album")));
@@ -40,7 +41,11 @@ public class LibraryExperienceTest {
             boolean forbidden=false;try{fake.change("qqvip","fresh","999",null);}catch(IllegalArgumentException expected){forbidden=true;}check(forbidden&&fake.writes==0,"Foreign playlist rejected before write");
             fake.accept=false;boolean unconfirmed=false;try{fake.change("qqvip","fresh",null,true);}catch(IllegalStateException expected){unconfirmed=expected.getMessage().equals("PLATFORM_WRITE_UNCONFIRMED");}check(unconfirmed,"Success code without changed membership is not success");
             fake.accept=true;check(fake.change("qqvip","fresh",null,true).getBooleanValue("confirmed"),"Write confirmed by subsequent read");
+            JSONObject guess=fake.guess("qqvip",false);check(guess.getJSONArray("tracks").size()==20&&fake.guessCalls==4,"Personal radio uses bounded independent batches");
+            check(!guess.containsKey("_songIds")&&!guess.containsKey("_account"),"Internal recommendation state stays server-side");
+            fake.guess("qqvip",true);check(fake.guessCalls==4,"Rapid refresh uses current account cache");
+            boolean unsupported=false;try{fake.guess("netease",false);}catch(IllegalArgumentException expected){unsupported=true;}check(unsupported,"QQ radio is never advertised for another platform");
         }finally{SqConfigCache.sqConfigMap.clear();SqConfigCache.sqConfigMap.putAll(before);java.nio.file.Files.deleteIfExists(dir.resolve("qq-collection.json"));java.nio.file.Files.delete(dir);}
-        System.out.println("LIBRARY_EXPERIENCE_TESTS_PASSED=15");
+        System.out.println("LIBRARY_EXPERIENCE_TESTS_PASSED=19");
     }
 }
