@@ -32,7 +32,7 @@ public class PlatformMusicService {
     private JSONObject ne(String path,JSONObject params)throws Exception{return ne(path,params,secret("netease"));}
     private JSONObject ne(String path,JSONObject params,String cookie)throws Exception{
         if(cookie.isBlank())throw new IllegalStateException("PLATFORM_LOGIN_REQUIRED");
-        var bridge=netease.neteaseCloudMusicInfo;if(bridge.getBaseUrl()==null||bridge.getBaseUrl().isBlank()){bridge=new com.sqmusicplus.v3.plug.netease.hander.SQNeteaseCloudMusicInfo();bridge.init(SqConfigCache.getSqConfigValue(SetConfigEnum.PLUG_NETEASE_BASEURL).split(";",2)[0]);}String base=bridge.getBaseUrl();if(base==null||base.isBlank())throw new IllegalStateException("PLATFORM_UNAVAILABLE");
+        var bridge=netease==null?null:netease.platformBridge();if(bridge==null||bridge.getBaseUrl()==null||bridge.getBaseUrl().isBlank()){bridge=new com.sqmusicplus.v3.plug.netease.hander.SQNeteaseCloudMusicInfo();bridge.init(SqConfigCache.getSqConfigValue(SetConfigEnum.PLUG_NETEASE_BASEURL).split(";",2)[0]);}String base=bridge.getBaseUrl();if(base==null||base.isBlank())throw new IllegalStateException("PLATFORM_UNAVAILABLE");
         JSONObject body=JSONObject.parseObject(params.toJSONString());body.put("cookie",cookie);body.put("timestamp",System.currentTimeMillis());
         Request.Builder builder=new Request.Builder().url(base.replaceAll("/+$","")+path).post(RequestBody.create(body.toJSONString(),MediaType.get("application/json")));
         bridge.getHeader().forEach(builder::header);

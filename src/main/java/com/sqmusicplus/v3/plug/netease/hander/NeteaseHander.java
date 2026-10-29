@@ -41,6 +41,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @Component("neteaseHander")
 public class NeteaseHander extends SearchHanderAbstract {
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(NeteaseHander.class);
+    public SQNeteaseCloudMusicInfo platformBridge(){return neteaseCloudMusicInfo;}
 
 
     public SQNeteaseCloudMusicInfo neteaseCloudMusicInfo = new SQNeteaseCloudMusicInfo();

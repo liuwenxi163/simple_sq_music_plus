@@ -22,7 +22,7 @@ public class MemberPlatformController {
     private final Map<Integer,Session> sessions=new ConcurrentHashMap<>();
     public MemberPlatformController(MemberService members,QQHander qq,NeteaseHander ne){this.members=members;this.qq=qq;this.ne=ne;}
     private JSONObject request(String path,JSONObject body)throws Exception{
-        SQNeteaseCloudMusicInfo info=ne.neteaseCloudMusicInfo;if(info.getBaseUrl()==null||info.getBaseUrl().isBlank()){info=new SQNeteaseCloudMusicInfo();info.init(SqConfigCache.getSqConfigValue(SetConfigEnum.PLUG_NETEASE_BASEURL).split(";",2)[0]);}
+        SQNeteaseCloudMusicInfo info=ne==null?null:ne.platformBridge();if(info==null||info.getBaseUrl()==null||info.getBaseUrl().isBlank()){info=new SQNeteaseCloudMusicInfo();info.init(SqConfigCache.getSqConfigValue(SetConfigEnum.PLUG_NETEASE_BASEURL).split(";",2)[0]);}
         String base=info.getBaseUrl();if(base==null||base.isBlank())throw new IllegalStateException("请先由管理员配置网易云服务");
         body.put("timestamp",System.currentTimeMillis());Request.Builder req=new Request.Builder().url(base.replaceAll("/+$","")+path).post(okhttp3.RequestBody.create(body.toJSONString(),MediaType.get("application/json")));info.getHeader().forEach(req::header);
         try(Response response=http.newCall(req.build()).execute()){if(!response.isSuccessful()||response.body()==null)throw new IllegalStateException("音乐平台暂时不可用");return JSONObject.parseObject(response.body().string());}
