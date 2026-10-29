@@ -16,5 +16,7 @@ javac -parameters -proc:none --release 21 -cp 'release/backend/classes:/app/BOOT
 java -cp 'release/test:release/backend/classes:/app/BOOT-INF/classes:/app/BOOT-INF/lib/*' com.sqmusicplus.v3.controller.PlaybackQualityTest
 javac -parameters -proc:none --release 21 -cp 'release/backend/classes:/app/BOOT-INF/classes:/app/BOOT-INF/lib/*' -d release/test src/test/java/com/sqmusicplus/v3/library/ListeningFeaturesTest.java
 java -cp 'release/test:release/backend/classes:/app/BOOT-INF/classes:/app/BOOT-INF/lib/*' com.sqmusicplus.v3.library.ListeningFeaturesTest
+javac -parameters -proc:none --release 21 -cp 'release/backend/classes:/app/BOOT-INF/classes:/app/BOOT-INF/lib/*' -d release/test src/test/java/com/sqmusicplus/v3/library/LibraryExperienceTest.java
+java -cp 'release/test:release/backend/classes:/app/BOOT-INF/classes:/app/BOOT-INF/lib/*' com.sqmusicplus.v3.library.LibraryExperienceTest
 cp deploy/Backend.Dockerfile release/backend/Dockerfile
 tar -czf release/backend.tar.gz -C release/backend .

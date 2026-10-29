@@ -13,8 +13,9 @@ import java.util.*;
 @RequestMapping("/api/library")
 @RequireLogin
 public class LibraryController {
-    private final LibraryService library;
-    public LibraryController(LibraryService library){this.library=library;}
+    private final LibraryService library;private final LocalPlaybackResolver resolver;
+    public LibraryController(LibraryService library,LocalPlaybackResolver resolver){this.library=library;this.resolver=resolver;}
+    @PostMapping("/resolve") public AjaxResult resolve(@RequestBody Map<String,String> request)throws Exception{return AjaxResult.success(resolver.resolve(request.getOrDefault("provider",""),request.get("id"),request.getOrDefault("format","auto"),request.getOrDefault("quality","auto")));}
     @GetMapping("/tracks") public AjaxResult tracks(@RequestParam(name="q",defaultValue="") String q,@RequestParam(name="offset",defaultValue="0") int offset,@RequestParam(name="limit",defaultValue="100") int limit) throws Exception {
         String query=q.toLowerCase(Locale.ROOT);var all=library.all().stream().filter(t->(t.title()+" "+t.artist()+" "+t.album()).toLowerCase(Locale.ROOT).contains(query)).toList();
         var result=new ArrayList<Map<String,Object>>();

@@ -39,6 +39,11 @@ public class AccountCollectionService {
         Files.createDirectories(file.getParent());Path temp=file.resolveSibling(file.getFileName()+".tmp");Files.writeString(temp,state.toJSONString());
         try{Files.move(temp,file,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}catch(AtomicMoveNotSupportedException e){Files.move(temp,file,StandardCopyOption.REPLACE_EXISTING);}
     }
+    public synchronized void confirmedChange(String account,String id,JSONObject track,boolean add)throws Exception{
+        if(!account.equals(state.getString("accountKey"))||track==null)return;
+        for(Object entry:rows(state,"playlists")){JSONObject list=(JSONObject)entry;if(!id.equals(list.getString("remoteId")))continue;JSONArray songs=rows(list,"tracks");songs.removeIf(value->track.getString("id").equals(((JSONObject)value).getString("id")));if(add)songs.add(0,track);list.put("tracks",songs);list.put("count",songs.size());}
+        persist();
+    }
     @Scheduled(fixedDelay=600000,initialDelay=30000) public void periodic(){if(status().getBooleanValue("enabled"))start();}
     public JSONObject start(){
         if(running.compareAndSet(false,true)){Thread worker=new Thread(this::sync,"sq-qq-collection");worker.setDaemon(true);worker.start();}

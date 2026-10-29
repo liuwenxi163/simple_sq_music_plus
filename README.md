@@ -1,3 +1,23 @@
+## 平台发现与写回接口
+
+以下接口要求 `sqmusic` 登录头，不返回平台 Cookie、账号 ID 或认证信息。
+
+| 接口 | 参数 | 结果与边界 |
+| --- | --- | --- |
+| GET /api/listening/platforms | 无 | accounts：验证登录的 QQ/网易云；errors：已配置但无法确认的状态 |
+| GET /api/listening/platforms/{provider}/daily | provider=qqvip/netease | 当日 tracks、date、本人 playlists、likedIds；未登录/无推荐明确失败 |
+| GET /api/listening/platforms/{provider}/library | 同上 | 当前账号本人歌单和喜欢 ID，不含账号标识 |
+| POST /api/listening/platforms/{provider}/like | id: 平台歌曲 ID，like: boolean | 写入我喜欢/取消喜欢，确认后的 confirmed；未知结果不报成功 |
+| POST /api/listening/platforms/{provider}/playlists/{id}/tracks | id 路径为歌单 ID；正文 id 为同平台歌曲 ID | 写前重新核对本人目录，写后读回确认，拒绝收藏的他人歌单 |
+| POST /api/library/resolve | provider/id/format/quality | matched=false 或本地 track、短期播放票据 URL、实际 quality；只有完整文件和唯一匹配才复用 |
+| PUT /api/library/state | 原有字段加 localFirst:boolean | 默认 true，按服务器持久化 |
+
+错误码包括 PLATFORM_LOGIN_REQUIRED、PLATFORM_UNAVAILABLE、DAILY_RECOMMENDATION_UNAVAILABLE、PLAYLIST_NOT_OWNED、PLATFORM_ACCOUNT_CHANGED、PLATFORM_WRITE_REJECTED、PLATFORM_WRITE_UNCONFIRMED。写请求不自动重试，重复用户请求先检查已有关系；读取失败保留客户端原状态。只操作固定平台接口，不能指定任意上游 URL 或账号。
+
+推荐缓存按当前账号凭据和北京时间日期区分，每个平台最多保留一份当前日推和一份账号目录；目录 60 秒、日推 30 分钟。QQ 歌单读取最多 5000 首并有时间边界，不完整时失败，不把缺失当作未喜欢。平台查询使用现有 HTTP 请求线程，不创建后台工作队列。定时收藏同步仍是只读，只有明确的喜欢/加入平台歌单按钮触发写回。
+
+QQ 网页写入协议参考 [qmweb-sign](https://github.com/jixunmoe/qmweb-sign)，Java 适配保留 MIT 许可于 licenses/qmweb-sign-MIT.txt，并随源码包和运行镜像提供。
+
 # SQ Music Listening Room（维护分支）
 
 基于 [SQMusic](https://github.com/59799517/simple_sq_music_plus) 与其 Web 客户端维护，面向自托管 NAS 的播放、音乐下载、歌单同步与曲库整理。

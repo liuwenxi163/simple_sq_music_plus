@@ -134,10 +134,11 @@ public class LibraryService {
             return exp>=now && exp<=now+3605 && MessageDigest.isEqual(sign(id,exp).getBytes(StandardCharsets.US_ASCII),p[1].getBytes(StandardCharsets.US_ASCII));
         }catch(Exception e){return false;}
     }
-    public synchronized Map<String,Object> preferences(){return json.convertValue(preferences,new TypeReference<Map<String,Object>>(){});}
+    public synchronized Map<String,Object> preferences(){Map<String,Object> copy=json.convertValue(preferences,new TypeReference<Map<String,Object>>(){});copy.putIfAbsent("localFirst",true);return copy;}
     private Map<String,Object> loadPreferences(){try{return json.readValue(data.resolve("listening.json").toFile(),new TypeReference<Map<String,Object>>(){});}catch(Exception e){return new LinkedHashMap<>(Map.of("favorites",List.of(),"playlists",List.of(),"recent",List.of()));}}
     public synchronized Map<String,Object> savePreferences(Map<String,Object> input) throws Exception {
         Map<String,Object> next=new LinkedHashMap<>(preferences);
+        if(input.containsKey("localFirst")){if(!(input.get("localFirst") instanceof Boolean))throw new IllegalArgumentException("Invalid playback preference");next.put("localFirst",input.get("localFirst"));}
         for(String name:List.of("favorites","playlists","recent"))if(input.containsKey(name)){
             Object value=input.get(name);if(!(value instanceof List<?> list) || list.size()>10000)throw new IllegalArgumentException("Invalid library state");
             next.put(name,value);
