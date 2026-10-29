@@ -116,68 +116,68 @@ public class SQNeteaseCloudMusicInfo {
 
     public JSONObject songMusicDetail(JSONObject parameter) {
         String url = "/song/music/detail?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
 
 
     public JSONObject songDownloadUrl(JSONObject parameter) {
         String url = "/song/download/url?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
 
     }
 
 
     public JSONObject searchSuggest(JSONObject parameter) {
         String url = "/search/suggest?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
 
 
 
     public JSONObject cloudsearch(JSONObject parameter) {
         String url = "/cloudsearch?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
 
 
 
     public JSONObject songDetail(JSONObject parameter) {
         String url = "/song/detail?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
 
     public JSONObject artistDetail(JSONObject parameter) {
         String url = "/artist/detail?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
 
 
     public JSONObject album(JSONObject parameter) {
         String url = "/album?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
 
 
 
     public JSONObject lyric(JSONObject parameter) {
         String url = "/lyric?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
 
 
     public JSONObject artistAlbum(JSONObject parameter) {
         String url = "/artist/album?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
 
     public JSONObject playlistDetail(JSONObject parameter) {
         String url = "/playlist/detail?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
 
     public JSONObject playlistTrackAll(JSONObject parameter) {
         String url = "/playlist/track/all?_t=" + System.currentTimeMillis();
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
     public JSONObject innerVersion(){
         String url = "/inner/version";
@@ -185,7 +185,7 @@ public class SQNeteaseCloudMusicInfo {
     }
     public JSONObject songWikiSummary(JSONObject parameter){
         String url = "/song/wiki/summary";
-        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, cookie,header);
+        return DownloadUtils.postCookieToJsonObject(baseUrl + url, parameter, getCookie(),header);
     }
 
 
@@ -195,7 +195,7 @@ public class SQNeteaseCloudMusicInfo {
     }
 
     public String getCookie() {
-        return cookie;
+        String value=com.sqmusicplus.v3.config.SqConfigCache.getSqConfigValue(com.sqmusicplus.v3.base.enums.SetConfigEnum.PLUG_NETEASE_COOKIE);return value==null||value.isBlank()?com.sqmusicplus.v3.members.MemberScope.admin()?cookie:"":value;
     }
 
     public void setCookie(String cookie) {

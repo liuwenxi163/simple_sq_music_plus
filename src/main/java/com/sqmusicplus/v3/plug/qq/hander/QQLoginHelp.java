@@ -40,7 +40,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class QQLoginHelp {
-    private static HashMap<String, List<Cookie>> cookieStore = new HashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<Integer,java.util.concurrent.ConcurrentHashMap<String,List<Cookie>>> cookieStores=new java.util.concurrent.ConcurrentHashMap<>();
+    private static java.util.Map<String,List<Cookie>> cookieStore(){return cookieStores.computeIfAbsent(com.sqmusicplus.v3.members.MemberScope.id(),id->new java.util.concurrent.ConcurrentHashMap<>());}
 
     // 新增全局 Cookie 管理器
     private static  TrustManager[] trustManagers = buildTrustManagers();
@@ -61,12 +62,12 @@ public class QQLoginHelp {
             .cookieJar(new CookieJar() {
                 @Override
                 public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
-                    cookieStore.put(url.host(), cookies);
+                    cookieStore().put(url.host(), cookies);
                 }
 
                 @Override
                 public List<Cookie> loadForRequest(HttpUrl url) {
-                    return cookieStore.getOrDefault(url.host(), new ArrayList<>());
+                    return cookieStore().getOrDefault(url.host(), new ArrayList<>());
                 }
             })
             .build();
@@ -249,7 +250,7 @@ public class QQLoginHelp {
                     return eventResult.setQrCodeLoginEvents(QRCodeLoginEvents.NOTFOUND);
                 }
                 ArrayList<Cookie> cookies = new ArrayList<>();
-                cookieStore.forEach((k, v) -> {
+                cookieStore().forEach((k, v) -> {
                     cookies.addAll(v);
 
                 });
@@ -535,7 +536,7 @@ public class QQLoginHelp {
                 System.out.println("  " + header.getFirst() + ": " + header.getSecond()));
 
         // 当前Cookie
-        List<Cookie> cookies = cookieStore.get(request.url().host());
+        List<Cookie> cookies = cookieStore().get(request.url().host());
         System.out.println("Cookies: " + (cookies != null ? cookies : "[]"));
     }
 

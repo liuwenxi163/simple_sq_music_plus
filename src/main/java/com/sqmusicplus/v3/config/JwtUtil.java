@@ -17,6 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 public class JwtUtil {
+    @org.springframework.beans.factory.annotation.Autowired private com.sqmusicplus.v3.members.MemberService members;
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(JwtUtil.class);
 
     @Value("${jwt.secret:sqmusic-secret-key-2025-very-long-string-for-security}")
     private String secret;
@@ -38,6 +40,7 @@ public class JwtUtil {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("username", username);
+        claims.put("mv",members==null?0:members.version(userId));
         
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);

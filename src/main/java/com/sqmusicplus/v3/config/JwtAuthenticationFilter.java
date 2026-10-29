@@ -19,6 +19,8 @@ import java.util.ArrayList;
 @Slf4j
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    @Autowired private com.sqmusicplus.v3.members.MemberService members;
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -45,6 +47,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(token) && jwtUtil.validateToken(token)) {
             Integer userId = jwtUtil.getUserIdFromToken(token);
             String username = jwtUtil.getUsernameFromToken(token);
+            Integer version=jwtUtil.getClaimsFromToken(token).get("mv",Integer.class);
+            if(userId==null||!members.session(userId,username,version)){response.setStatus(401);response.setContentType("application/json;charset=UTF-8");response.getWriter().write("{\"code\":401,\"msg\":\"登录已失效，请重新登录\"}");return;}
 
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userId, null, new ArrayList<>()
@@ -55,7 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             
 //            log.info("用户 {} 认证成功，ID: {}", username, userId);
         } else if (StringUtils.hasText(token)) {
-            log.warn("Token 验证失败: {}", token.substring(0, Math.min(20, token.length())) + "...");
+            log.warn("Token 验证失败");
         }
 
         // 检查是否需要登录认证
@@ -68,7 +72,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        filterChain.doFilter(request, response);
+        String path=request.getRequestURI(),method=request.getMethod();
+        Integer member=org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()!=null&&org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal() instanceof Integer id?id:null;
+        boolean publicMedia=path.startsWith("/api/library/stream/")||path.startsWith("/api/library/cover/")||path.startsWith("/api/proxy/tidal/");
+        boolean publicInfo=java.util.Set.of("/api/config/isLogin","/api/config/version","/api/version","/api/config/getOption","/api/config/getPlugBrTypeList").contains(path);
+        if(!method.equals("OPTIONS")&&(path.startsWith("/api/")||path.equals("/mcp"))&&!publicMedia&&!publicInfo&&member==null){response.setStatus(401);response.setContentType("application/json;charset=UTF-8");response.getWriter().write("{\"code\":401,\"msg\":\"请先登录\"}");return;}
+        if(member!=null&&member!=com.sqmusicplus.v3.members.MemberScope.ADMIN&&!com.sqmusicplus.v3.members.MemberAccess.allowed(method,path)&&(path.startsWith("/api/")||path.equals("/mcp"))){response.setStatus(403);response.setContentType("application/json;charset=UTF-8");response.getWriter().write("{\"code\":403,\"msg\":\"此操作仅管理员可用\"}");return;}
+        if(member==null){filterChain.doFilter(request,response);return;}
+        try(com.sqmusicplus.v3.members.MemberScope scope=com.sqmusicplus.v3.members.MemberScope.enter(member)){filterChain.doFilter(request,response);}
     }
 
     private String getTokenFromRequest(HttpServletRequest request) {

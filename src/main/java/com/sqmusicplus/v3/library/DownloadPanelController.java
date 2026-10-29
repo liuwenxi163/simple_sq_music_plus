@@ -16,6 +16,7 @@ public class DownloadPanelController {
     public DownloadPanelController(DownloadInfoService tasks,ObjectMapper json){this.tasks=tasks;this.json=json;}
     @GetMapping public AjaxResult list(@RequestParam(name="tab",defaultValue="active") String tab,@RequestParam(name="page",defaultValue="1") int page){
         var query=new LambdaQueryWrapper<DownloadInfo>().isNotNull(DownloadInfo::getDownloadPlugName).ne(DownloadInfo::getDownloadMusicId,"0");
+        if(!com.sqmusicplus.v3.members.MemberScope.admin())query.apply("JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(download_music_info),download_music_info,'{}'), '$.__nookMember')) = {0}",com.sqmusicplus.v3.members.MemberScope.id());
         switch(tab){
             case "active" -> query.in(DownloadInfo::getDownloadStatus,List.of("waiting","loading","retry","supplement"));
             case "completed" -> query.in(DownloadInfo::getDownloadStatus,List.of("success","supplement_success"));

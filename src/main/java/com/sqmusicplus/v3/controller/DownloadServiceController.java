@@ -38,6 +38,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/download")
 public class DownloadServiceController {
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(DownloadServiceController.class);
 
     @Autowired
     List<SearchHanderAbstract> searchHanderAbstractList;
@@ -64,6 +65,7 @@ public class DownloadServiceController {
      */
     @PostMapping("/downloadSong")
    public AjaxResult downloadSong(@RequestBody PlugDownloadSongParam downloadSongParam) {
+        com.sqmusicplus.v3.members.MemberScope.requireProvider(downloadSongParam.getPlugName());
         SearchHanderAbstract plugHander = MusicUtils.getPlugHander(downloadSongParam.getPlugName(), searchHanderAbstractList);
         List<PlugBrType> brTypes = downloadSongParam.getBrTypes();
 

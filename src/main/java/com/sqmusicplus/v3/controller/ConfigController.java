@@ -45,6 +45,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/config")
 public class ConfigController {
+    @Autowired private com.sqmusicplus.v3.members.MemberService members;
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(ConfigController.class);
     @Autowired
     private NeteaseHander neteaseHander;
     @Autowired
@@ -83,24 +85,11 @@ public class ConfigController {
         if (StringUtils.isEmpty(username) || StringUtils.isEmpty(password)) {
             return AjaxResult.error("登录失败");
         }
-        String dbname = SqConfigCache.getSqConfigValue(SetConfigEnum.SYSTEM_LOGIN_ACCOUNT);
-        String dbpwd = SqConfigCache.getSqConfigValue(SetConfigEnum.SYSTEM_LOGIN_PASSWORD);
-        if (StringUtils.isBlank(dbname)) {
-            return AjaxResult.error("请先设置登录用户");
-        }
-        if (username.equals(dbname) && password.equals(dbpwd)) {
-            // 生成 Token
-            String token = authUtil.login(9527, username);
-            
-            // 计算 Token 过期时间（秒），从配置文件读取
-            Long tokenTimeout = jwtExpirationMs / 1000; // 毫秒转秒
-            
-            // 创建登录响应
-            LoginResponse loginResponse = new LoginResponse(token, 9527, tokenTimeout, device);
-            return AjaxResult.success(loginResponse);
-        } else {
-            return AjaxResult.error("账号密码错误");
-        }
+        Integer id=members.authenticate(username,password);
+        if(id==null)return AjaxResult.error("账号密码错误或成员已停用");
+        String canonical=members.profile(id).getString("username");
+        String token=authUtil.login(id,canonical);
+        return AjaxResult.success(new LoginResponse(token,id,jwtExpirationMs/1000,device));
     }
 
     /**
@@ -188,7 +177,7 @@ public class ConfigController {
     @RequireLogin(value = false)
     @GetMapping("/getOption")
     public AjaxResult getSelectOption() {
-        return AjaxResult.success(SqConfigCache.PlugOptions);
+        return AjaxResult.success(com.sqmusicplus.v3.members.MemberScope.admin()?SqConfigCache.PlugOptions:SqConfigCache.PlugOptions.stream().filter(p->java.util.Set.of("qqvip","qq","netease").contains(p.get("value"))).toList());
     }
 
     /**

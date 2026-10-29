@@ -19,6 +19,7 @@ public class PlatformMusicService {
     private final QQHander qq;private final NeteaseHander netease;private final AccountCollectionService collections;
     private record Cached(String account,long expires,JSONObject value){}
     private final Map<String,Cached> cache=new ConcurrentHashMap<>();
+    private String cacheKey(String p,String kind){return com.sqmusicplus.v3.members.MemberScope.id()+":"+p+":"+kind;}
     public PlatformMusicService(QQHander qq,NeteaseHander netease,AccountCollectionService collections){this.qq=qq;this.netease=netease;this.collections=collections;}
     static String digest(String text)throws Exception{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));}
     String secret(String provider){String value=SqConfigCache.getSqConfigValue(provider.equals("qqvip")?SetConfigEnum.PLUG_QQVIP_COOKIE:SetConfigEnum.PLUG_NETEASE_COOKIE);return value==null?"":value;}
@@ -31,10 +32,10 @@ public class PlatformMusicService {
     private JSONObject ne(String path,JSONObject params)throws Exception{return ne(path,params,secret("netease"));}
     private JSONObject ne(String path,JSONObject params,String cookie)throws Exception{
         if(cookie.isBlank())throw new IllegalStateException("PLATFORM_LOGIN_REQUIRED");
-        String base=netease.neteaseCloudMusicInfo.getBaseUrl();if(base==null||base.isBlank())throw new IllegalStateException("PLATFORM_UNAVAILABLE");
+        var bridge=netease.neteaseCloudMusicInfo;if(bridge.getBaseUrl()==null||bridge.getBaseUrl().isBlank()){bridge=new com.sqmusicplus.v3.plug.netease.hander.SQNeteaseCloudMusicInfo();bridge.init(SqConfigCache.getSqConfigValue(SetConfigEnum.PLUG_NETEASE_BASEURL).split(";",2)[0]);}String base=bridge.getBaseUrl();if(base==null||base.isBlank())throw new IllegalStateException("PLATFORM_UNAVAILABLE");
         JSONObject body=JSONObject.parseObject(params.toJSONString());body.put("cookie",cookie);body.put("timestamp",System.currentTimeMillis());
         Request.Builder builder=new Request.Builder().url(base.replaceAll("/+$","")+path).post(RequestBody.create(body.toJSONString(),MediaType.get("application/json")));
-        netease.neteaseCloudMusicInfo.getHeader().forEach(builder::header);
+        bridge.getHeader().forEach(builder::header);
         try(Response r=QqAccountTransport.CLIENT.newCall(builder.build()).execute()){if(!r.isSuccessful()||r.body()==null)throw new IllegalStateException("PLATFORM_UNAVAILABLE");JSONObject result=JSONObject.parseObject(r.body().string());if(result.getIntValue("code")!=200)throw new IllegalStateException(result.getIntValue("code")==301?"PLATFORM_LOGIN_REQUIRED":"PLATFORM_REQUEST_REJECTED");return result;}
     }
     public JSONObject accounts(){JSONArray accounts=new JSONArray(),errors=new JSONArray();for(String p:List.of("qqvip","netease")){
@@ -43,7 +44,7 @@ public class PlatformMusicService {
         catch(Exception e){errors.add(JSONObject.of("id",p,"message",safeError(e)));}
     }return JSONObject.of("accounts",accounts,"errors",errors);}
     private JSONObject context(String p)throws Exception{
-        provider(p);String credential=secret(p),identity=digest(credential);Cached saved=cache.get(p+":context");if(saved!=null&&saved.account.equals(identity)&&saved.expires>System.currentTimeMillis())return JSONObject.parseObject(saved.value.toJSONString());
+        provider(p);String credential=secret(p),identity=digest(credential);Cached saved=cache.get(cacheKey(p,"context"));if(saved!=null&&saved.account.equals(identity)&&saved.expires>System.currentTimeMillis())return JSONObject.parseObject(saved.value.toJSONString());
         JSONObject out=new JSONObject();JSONArray lists=new JSONArray(),liked=new JSONArray();
         if(p.equals("qqvip")){
             if(!Boolean.TRUE.equals(qq.checkLoginStatus()))throw new IllegalStateException("PLATFORM_LOGIN_REQUIRED");JSONObject c=JSONObject.parseObject(credential),catalog=own(c);if(!catalog.containsKey("v_playlist"))throw new IllegalStateException("PLATFORM_LOGIN_REQUIRED");
@@ -60,7 +61,7 @@ public class PlatformMusicService {
             liked=array(ne("/likelist",JSONObject.of("uid",uid),credential),"ids");out.put("uid",uid);
         }
         if(!identity.equals(digest(secret(p))))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");
-        out.put("_account",identity);out.put("playlists",lists);out.put("likedIds",liked);cache.put(p+":context",new Cached(identity,System.currentTimeMillis()+60000,out));return JSONObject.parseObject(out.toJSONString());
+        out.put("_account",identity);out.put("playlists",lists);out.put("likedIds",liked);cache.put(cacheKey(p,"context"),new Cached(identity,System.currentTimeMillis()+60000,out));return JSONObject.parseObject(out.toJSONString());
     }
     public JSONObject library(String p)throws Exception{JSONObject value=context(p);value.remove("uid");value.remove("_account");return value;}
     private JSONArray qqTracks(JSONObject c,JSONObject list)throws Exception{
@@ -83,18 +84,18 @@ public class PlatformMusicService {
         return JSONObject.of("id",raw.getString("id"),"plugName","netease","name",raw.getString("name"),"artistName",names,"albumName",album==null?"":album.getString("name"),"pic",album==null?"":album.getString("picUrl"),"duration",raw.getLongValue("dt"),"brTypes",qualities);
     }
     public JSONObject daily(String p)throws Exception{
-        provider(p);JSONObject ctx=context(p);String credential=secret(p);if(!digest(credential).equals(ctx.getString("_account")))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");String key=digest(credential)+LocalDate.now(ZoneId.of("Asia/Shanghai"));Cached saved=cache.get(p+":daily");if(saved!=null&&saved.account.equals(key)&&saved.expires>System.currentTimeMillis())return JSONObject.parseObject(saved.value.toJSONString());JSONArray songs;
+        provider(p);JSONObject ctx=context(p);String credential=secret(p);if(!digest(credential).equals(ctx.getString("_account")))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");String key=digest(credential)+LocalDate.now(ZoneId.of("Asia/Shanghai"));Cached saved=cache.get(cacheKey(p,"daily"));if(saved!=null&&saved.account.equals(key)&&saved.expires>System.currentTimeMillis())return JSONObject.parseObject(saved.value.toJSONString());JSONArray songs;
         if(p.equals("qqvip")){JSONObject c=JSONObject.parseObject(credential);JSONObject feed=q(c,"music.recommend.RecommendFeed","get_recommend_feed",JSONObject.of("userid",c.getString("musicid")));String id=dailyId(feed);if(id==null)throw new IllegalStateException("DAILY_RECOMMENDATION_UNAVAILABLE");songs=qqTracks(c,JSONObject.of("id",id,"dirId","0"));}
         else{JSONObject data=ne("/recommend/songs",new JSONObject(),credential).getJSONObject("data");songs=new JSONArray();for(Object raw:array(data,"dailySongs"))songs.add(neSong((JSONObject)raw));}
         if(!digest(credential).equals(digest(secret(p))))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");
-        if(songs.isEmpty())throw new IllegalStateException("DAILY_RECOMMENDATION_UNAVAILABLE");JSONObject out=JSONObject.of("provider",p,"date",LocalDate.now(ZoneId.of("Asia/Shanghai")).toString(),"tracks",songs,"title",p.equals("qqvip")?"每日30首":"每日推荐","playlists",ctx.getJSONArray("playlists"),"likedIds",ctx.getJSONArray("likedIds"));cache.put(p+":daily",new Cached(key,System.currentTimeMillis()+1800000,out));return JSONObject.parseObject(out.toJSONString());
+        if(songs.isEmpty())throw new IllegalStateException("DAILY_RECOMMENDATION_UNAVAILABLE");JSONObject out=JSONObject.of("provider",p,"date",LocalDate.now(ZoneId.of("Asia/Shanghai")).toString(),"tracks",songs,"title",p.equals("qqvip")?"每日30首":"每日推荐","playlists",ctx.getJSONArray("playlists"),"likedIds",ctx.getJSONArray("likedIds"));cache.put(cacheKey(p,"daily"),new Cached(key,System.currentTimeMillis()+1800000,out));return JSONObject.parseObject(out.toJSONString());
     }
     /** QQ's personal radio is independent from its calendar-based daily playlist. */
     public JSONObject guess(String p,boolean refresh)throws Exception{
         if(!"qqvip".equals(p))throw new IllegalArgumentException("PLATFORM_NOT_SUPPORTED");
         JSONObject ctx=context(p);String credential=secret(p),identity=digest(credential);
         if(!identity.equals(ctx.getString("_account")))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");
-        Cached saved=cache.get(p+":guess");long now=System.currentTimeMillis();JSONObject result;
+        Cached saved=cache.get(cacheKey(p,"guess"));long now=System.currentTimeMillis();JSONObject result;
         if(saved!=null&&saved.account.equals(identity)&&saved.expires>now&&(!refresh||saved.value.getLongValue("refreshAvailableAt")>now))result=JSONObject.parseObject(saved.value.toJSONString());
         else{
             JSONObject cookie=JSONObject.parseObject(credential);JSONArray songs=new JSONArray();Set<String> seen=new HashSet<>();
@@ -116,15 +117,22 @@ public class PlatformMusicService {
             if(songs.isEmpty())throw new IllegalStateException("GUESS_RECOMMENDATION_UNAVAILABLE");
             long fetched=System.currentTimeMillis();
             result=JSONObject.of("provider",p,"title","猜你喜欢","tracks",songs,"updatedAt",fetched,"refreshAvailableAt",fetched+30000,"partial",partial);
-            cache.put(p+":guess",new Cached(identity,fetched+300000,result));result=JSONObject.parseObject(result.toJSONString());
+            cache.put(cacheKey(p,"guess"),new Cached(identity,fetched+300000,result));result=JSONObject.parseObject(result.toJSONString());
         }
         result.remove("_songIds");result.put("playlists",ctx.getJSONArray("playlists"));result.put("likedIds",ctx.getJSONArray("likedIds"));return result;
+    }
+    public JSONObject playlist(String p,String id)throws Exception{
+        provider(p);if(id==null||!id.matches("[0-9]+"))throw new IllegalArgumentException("Invalid playlist");JSONObject ctx=context(p),list=null;for(Object o:array(ctx,"playlists")){JSONObject r=(JSONObject)o;if(id.equals(r.getString("id"))){list=r;break;}}if(list==null)throw new IllegalArgumentException("PLAYLIST_NOT_OWNED");
+        String credential=secret(p);if(!digest(credential).equals(ctx.getString("_account")))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");JSONArray songs=new JSONArray();
+        if(p.equals("qqvip"))songs=qqTracks(JSONObject.parseObject(credential),list);
+        else{long deadline=System.currentTimeMillis()+18000;for(int offset=0;offset<50000;offset+=1000){JSONObject result=ne("/playlist/track/all",JSONObject.of("id",id,"limit",1000,"offset",offset),credential);JSONArray batch=array(result,"songs");for(Object t:batch)songs.add(neSong((JSONObject)t));if(batch.size()<1000)break;if(System.currentTimeMillis()>deadline)throw new IllegalStateException("PLATFORM_LIBRARY_INCOMPLETE");}}
+        if(!digest(credential).equals(digest(secret(p))))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");return JSONObject.of("id",p+":"+id,"source",p,"remoteId",id,"name",list.getString("name"),"kind",list.getString("kind"),"tracks",songs,"loaded",true);
     }
     static JSONObject owned(JSONObject context,String id){for(Object item:array(context,"playlists")){JSONObject list=(JSONObject)item;if(id.equals(list.getString("id")))return list;}throw new IllegalArgumentException("PLAYLIST_NOT_OWNED");}
     static boolean contains(JSONArray tracks,String id){return tracks.stream().anyMatch(t->id.equals(((JSONObject)t).getString("id")));}
     public JSONObject change(String p,String mid,String target,Boolean like)throws Exception{
         provider(p);if(mid==null||!mid.matches("[A-Za-z0-9]{1,64}"))throw new IllegalArgumentException("Invalid song identity");
-        cache.remove(p+":context");JSONObject ctx=context(p),list;String credential=secret(p);if(!digest(credential).equals(ctx.getString("_account")))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");
+        cache.remove(cacheKey(p,"context"));JSONObject ctx=context(p),list;String credential=secret(p);if(!digest(credential).equals(ctx.getString("_account")))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");
         if(like!=null){list=array(ctx,"playlists").stream().map(JSONObject.class::cast).filter(x->"likes".equals(x.getString("kind"))).findFirst().orElseThrow(()->new IllegalStateException("PLATFORM_LIBRARY_INCOMPLETE"));}
         else list=owned(ctx,target);
         boolean want=like==null||like;JSONObject normalized=null;
@@ -135,7 +143,7 @@ public class PlatformMusicService {
             if(!digest(secret(p)).equals(ctx.getString("_account")))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");
             writeQq(c,"music.musicasset.PlaylistDetailWrite",want?"AddSonglist":"DelSonglist",JSONObject.of("dirId",Integer.parseInt(list.getString("dirId")),"v_songInfo",JSONArray.of(JSONObject.of("songId",track.getLongValue("id"),"songType",track.getIntValue("type")))));
             if(contains(qqTracks(c,list),mid)!=want)throw new IllegalStateException("PLATFORM_WRITE_UNCONFIRMED");
-            collections.confirmedChange(digest(c.getString("musicid")),list.getString("id"),normalized,want);
+            if(com.sqmusicplus.v3.members.MemberScope.admin())collections.confirmedChange(digest(c.getString("musicid")),list.getString("id"),normalized,want);
         }else{
             if(!mid.matches("[0-9]+"))throw new IllegalArgumentException("Invalid song identity");
             if(!digest(secret(p)).equals(ctx.getString("_account")))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");
@@ -143,7 +151,7 @@ public class PlatformMusicService {
             else{ne("/playlist/tracks",JSONObject.of("op","add","pid",list.getString("id"),"tracks",mid),credential);JSONObject detail=ne("/playlist/detail",JSONObject.of("id",list.getString("id")),credential).getJSONObject("playlist");if(detail==null||!array(detail,"trackIds").stream().anyMatch(x->mid.equals(((JSONObject)x).getString("id"))))throw new IllegalStateException("PLATFORM_WRITE_UNCONFIRMED");}
         }
         if(!digest(credential).equals(digest(secret(p))))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");
-        cache.remove(p+":context");cache.remove(p+":daily");return JSONObject.of("confirmed",true,"liked",want,"playlistId",list.getString("id"));
+        cache.remove(cacheKey(p,"context"));cache.remove(cacheKey(p,"daily"));return JSONObject.of("confirmed",true,"liked",want,"playlistId",list.getString("id"));
     }
     static String safeError(Exception e){String m=e.getMessage();return m!=null&&m.matches("[A-Z_]+")?m:"PLATFORM_UNAVAILABLE";}
 }

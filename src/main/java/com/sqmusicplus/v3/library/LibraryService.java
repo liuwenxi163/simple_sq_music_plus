@@ -34,6 +34,9 @@ public class LibraryService {
     private volatile Map<String,Track> tracks=Map.of();
     private volatile Map<String,Object> scanState=Map.of("running",false,"scanned",0,"failed",0);
     private Map<String,Object> preferences;
+    private final Map<Integer,Map<String,Object>> memberPreferences=new HashMap<>();
+    private Path preferencesFile(){int id=com.sqmusicplus.v3.members.MemberScope.id();return id==9527?data.resolve("listening.json"):data.resolve("members").resolve(Integer.toString(id)).resolve("listening.json");}
+    private Map<String,Object> currentPreferences(){return com.sqmusicplus.v3.members.MemberScope.admin()?preferences:memberPreferences.computeIfAbsent(com.sqmusicplus.v3.members.MemberScope.id(),id->loadPreferences());}
     private static final Set<String> FORMATS=Set.of("mp3","flac","m4a","mp4","aac","wav","ogg","opus","ape","wma","aiff");
     private static final Set<String> PLAYABLE=Set.of("mp3","flac","m4a","mp4","aac","wav","ogg","opus");
 
@@ -134,17 +137,17 @@ public class LibraryService {
             return exp>=now && exp<=now+3605 && MessageDigest.isEqual(sign(id,exp).getBytes(StandardCharsets.US_ASCII),p[1].getBytes(StandardCharsets.US_ASCII));
         }catch(Exception e){return false;}
     }
-    public synchronized Map<String,Object> preferences(){Map<String,Object> copy=json.convertValue(preferences,new TypeReference<Map<String,Object>>(){});copy.putIfAbsent("localFirst",true);return copy;}
-    private Map<String,Object> loadPreferences(){try{return json.readValue(data.resolve("listening.json").toFile(),new TypeReference<Map<String,Object>>(){});}catch(Exception e){return new LinkedHashMap<>(Map.of("favorites",List.of(),"playlists",List.of(),"recent",List.of()));}}
+    public synchronized Map<String,Object> preferences(){Map<String,Object> copy=json.convertValue(currentPreferences(),new TypeReference<Map<String,Object>>(){});copy.putIfAbsent("localFirst",true);return copy;}
+    private Map<String,Object> loadPreferences(){try{return json.readValue(preferencesFile().toFile(),new TypeReference<Map<String,Object>>(){});}catch(Exception e){return new LinkedHashMap<>(Map.of("favorites",List.of(),"playlists",List.of(),"recent",List.of()));}}
     public synchronized Map<String,Object> savePreferences(Map<String,Object> input) throws Exception {
-        Map<String,Object> next=new LinkedHashMap<>(preferences);
+        Map<String,Object> next=new LinkedHashMap<>(currentPreferences());
         if(input.containsKey("localFirst")){if(!(input.get("localFirst") instanceof Boolean))throw new IllegalArgumentException("Invalid playback preference");next.put("localFirst",input.get("localFirst"));}
         for(String name:List.of("favorites","playlists","recent"))if(input.containsKey(name)){
             Object value=input.get(name);if(!(value instanceof List<?> list) || list.size()>10000)throw new IllegalArgumentException("Invalid library state");
             next.put(name,value);
         }
         byte[] bytes=json.writeValueAsBytes(next);if(bytes.length>4*1024*1024)throw new IllegalArgumentException("Library state too large");
-        Path tmp=data.resolve("listening.json.tmp");Files.write(tmp,bytes);try{Files.move(tmp,data.resolve("listening.json"),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}catch(AtomicMoveNotSupportedException e){Files.move(tmp,data.resolve("listening.json"),StandardCopyOption.REPLACE_EXISTING);}
-        preferences=next;return preferences();
+        Path target=preferencesFile();Files.createDirectories(target.getParent());Path tmp=target.resolveSibling("listening.json.tmp");Files.write(tmp,bytes);try{Files.setPosixFilePermissions(tmp,java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));}catch(UnsupportedOperationException ignored){}try{Files.move(tmp,target,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}catch(AtomicMoveNotSupportedException e){Files.move(tmp,target,StandardCopyOption.REPLACE_EXISTING);}
+        if(com.sqmusicplus.v3.members.MemberScope.admin())preferences=next;else memberPreferences.put(com.sqmusicplus.v3.members.MemberScope.id(),next);return preferences();
     }
 }

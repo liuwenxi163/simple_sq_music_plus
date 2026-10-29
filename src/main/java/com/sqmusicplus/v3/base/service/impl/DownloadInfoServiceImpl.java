@@ -36,6 +36,7 @@ public class DownloadInfoServiceImpl extends ServiceImpl<DownloadInfoMapper, Dow
     @Override
     public synchronized Boolean add(DownloadInfo downloadInfo) {
         // 截断过长的字符串，避免数据库报错
+        com.sqmusicplus.v3.members.MemberScope.mark(downloadInfo);
         truncateStringField(downloadInfo);
         downloadInfo.setDownloadStatus(DownloadStatus.waiting.getValue());
         boolean save = downloadInfoService.save(downloadInfo);
@@ -52,6 +53,7 @@ public class DownloadInfoServiceImpl extends ServiceImpl<DownloadInfoMapper, Dow
             // 检查歌曲 ID 是否已存在
             if (!uniqueMusicIds.contains(info.getDownloadMusicId())) {
                 // 截断过长的字符串，避免数据库报错
+                com.sqmusicplus.v3.members.MemberScope.mark(info);
                 truncateStringField(info);
                 info.setDownloadStatus(DownloadStatus.waiting.getValue());
                 uniqueMusicIds.add(info.getDownloadMusicId());

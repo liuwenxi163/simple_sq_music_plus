@@ -22,6 +22,7 @@ import java.util.List;
  */
 
 public class SqConfigCache {
+    private static SqConfig scoped(SqConfig original){if(original==null)return null;for(SetConfigEnum key:new SetConfigEnum[]{SetConfigEnum.PLUG_QQVIP_COOKIE,SetConfigEnum.PLUG_NETEASE_COOKIE})if(key.getKey().equals(original.getConfigKey())){String value=com.sqmusicplus.v3.members.MemberScope.credential(key);if(value!=null){SqConfig copy=com.alibaba.fastjson2.JSONObject.parseObject(com.alibaba.fastjson2.JSONObject.toJSONString(original),SqConfig.class);copy.setConfigValue(value);return copy;}}return original;}
     /**
      * 全局设置缓存
      */
@@ -56,7 +57,7 @@ public class SqConfigCache {
      * @return
      */
     public static SqConfig getSqConfig(String plugKey) {
-        return sqConfigMap.get(plugKey);
+        return scoped(sqConfigMap.get(plugKey));
     }
     /**
      * 获取配置
@@ -65,7 +66,7 @@ public class SqConfigCache {
      */
     public static SqConfig getSqConfig(SetConfigEnum setConfigEnum) {
         String key = setConfigEnum.getKey();
-        return sqConfigMap.get(key);
+        return scoped(sqConfigMap.get(key));
     }
 
     /**
@@ -75,6 +76,7 @@ public class SqConfigCache {
      */
     public static String getSqConfigValue(SetConfigEnum setConfigEnum) {
         try {
+            String override=com.sqmusicplus.v3.members.MemberScope.credential(setConfigEnum);if(override!=null)return override;
             String key = setConfigEnum.getKey();
             return sqConfigMap.get(key).getConfigValue();
         } catch (Exception e) {
@@ -118,6 +120,7 @@ public class SqConfigCache {
      * 修改配置到DB
      */
     public static void updateConfigToDb(SetConfigEnum setConfigEnum,String  value){
+        if(com.sqmusicplus.v3.members.MemberScope.save(setConfigEnum,value))return;
         SqConfigService bean = SpringContextUtil.getBean(SqConfigService.class);
         boolean update = bean.update(Wrappers.<SqConfig>lambdaUpdate().eq(SqConfig::getConfigKey, setConfigEnum.getKey()).set(SqConfig::getConfigValue, value));
         if (update){

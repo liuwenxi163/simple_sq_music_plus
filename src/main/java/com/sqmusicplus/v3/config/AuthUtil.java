@@ -16,6 +16,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @Slf4j
 @Component
 public class AuthUtil {
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(AuthUtil.class);
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -69,7 +70,7 @@ public class AuthUtil {
      */
     public boolean isLogin() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication != null && authentication.isAuthenticated();
+        return authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof Integer;
     }
 
     /**

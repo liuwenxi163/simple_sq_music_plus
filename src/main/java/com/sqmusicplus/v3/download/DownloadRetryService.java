@@ -33,6 +33,7 @@ import java.util.Set;
 @Slf4j
 @Service
 public class DownloadRetryService {
+    private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(DownloadRetryService.class);
 
     @Autowired
     private DownloadInfoService downloadInfoService;
@@ -47,6 +48,7 @@ public class DownloadRetryService {
      * @return true 表示已创建新的重试下载记录，false 表示无需重试 
      */
     public boolean retryWithOtherPlugin(DownloadInfo failedRecord) {
+        if(com.sqmusicplus.v3.members.MemberScope.owner(failedRecord)!=com.sqmusicplus.v3.members.MemberScope.ADMIN)return false;
         if(failedRecord.getParentDownloadId()!=null){
             log.debug("子任务，不重试");
             return false;

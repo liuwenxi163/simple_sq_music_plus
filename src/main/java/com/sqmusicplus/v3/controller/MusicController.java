@@ -37,6 +37,7 @@ public class MusicController {
      */
     @GetMapping("/searchTips")
     public AjaxResult searchTips(SearchMusicParam param) {
+        com.sqmusicplus.v3.members.MemberScope.requireProvider(param.getPlugName());
         SearchHanderAbstract plugHander = MusicUtils.getPlugHander(param.getPlugName(),searchHanderAbstractList);
         List<String> strings = plugHander.searchTip(param.getKeyword());
         return AjaxResult.success(strings);
@@ -50,6 +51,7 @@ public class MusicController {
      */
     @GetMapping("/searchSong")
     public AjaxResult searchSong(SearchMusicParam param){
+        com.sqmusicplus.v3.members.MemberScope.requireProvider(param.getPlugName());
         SearchHanderAbstract plugHander = MusicUtils.getPlugHander(param.getPlugName(),searchHanderAbstractList);
         SearchKeyData searchKeyData = new SearchKeyData().setPageIndex(param.getPageIndex()).setPageSize(param.getPageSize()).setSearchkey(param.getKeyword()).setPlugName(param.getPlugName());
         PlugSearchResult<PlugSearchMusicResult> plugSearchMusicResultPlugSearchResult = plugHander.querySongByName(searchKeyData);
@@ -63,6 +65,7 @@ public class MusicController {
      */
     @GetMapping("/SongInfoById")
     public AjaxResult SongInfoById(SearchMusicByIdParam param){
+        com.sqmusicplus.v3.members.MemberScope.requireProvider(param.getPlugName());
         SearchHanderAbstract plugHander = MusicUtils.getPlugHander(param.getPlugName(),searchHanderAbstractList);
         Music music = plugHander.querySongById(param.getId());
         return AjaxResult.success(music);
@@ -75,6 +78,7 @@ public class MusicController {
      */
     @GetMapping("/searchArtist")
     public AjaxResult searchArtist(SearchMusicParam param){
+        com.sqmusicplus.v3.members.MemberScope.requireProvider(param.getPlugName());
         SearchHanderAbstract plugHander = MusicUtils.getPlugHander(param.getPlugName(),searchHanderAbstractList);
         SearchKeyData searchKeyData = new SearchKeyData().setSearchkey(param.getKeyword()).setPageSize(param.getPageSize()).setPageIndex(param.getPageIndex()).setPlugName(param.getPlugName());
         PlugSearchResult<PlugSearchArtistResult> plugSearchArtistResultPlugSearchResult = plugHander.queryArtistByName(searchKeyData);
@@ -87,6 +91,7 @@ public class MusicController {
      */
     @GetMapping("/artistAlbumById")
     public AjaxResult ArtistAlbumById(SearchMusicByIdParam param){
+        com.sqmusicplus.v3.members.MemberScope.requireProvider(param.getPlugName());
         SearchHanderAbstract plugHander = MusicUtils.getPlugHander(param.getPlugName(),searchHanderAbstractList);
         Artists artists = plugHander.queryArtistById(param.getId());
         List<Album> albumsByArtist = plugHander.getAlbumsByArtist(param.getId());
@@ -102,6 +107,7 @@ public class MusicController {
      */
     @GetMapping("/searchAlbum")
     public AjaxResult searchAlbum(SearchMusicParam param){
+        com.sqmusicplus.v3.members.MemberScope.requireProvider(param.getPlugName());
         SearchHanderAbstract plugHander = MusicUtils.getPlugHander(param.getPlugName(),searchHanderAbstractList);
         SearchKeyData searchKeyData = new SearchKeyData().setSearchkey(param.getKeyword()).setPageSize(param.getPageSize()).setPageIndex(param.getPageIndex()).setPlugName(param.getPlugName());
         PlugSearchResult<PlugSearchAlbumResult> plugSearchAlbumResultPlugSearchResult = plugHander.queryAlbumByName(searchKeyData);
@@ -113,6 +119,7 @@ public class MusicController {
 
     @GetMapping("/albumInfoById")
     public AjaxResult albumInfoById(SearchMusicByIdParam param){
+        com.sqmusicplus.v3.members.MemberScope.requireProvider(param.getPlugName());
         SearchHanderAbstract plugHander = MusicUtils.getPlugHander(param.getPlugName(),searchHanderAbstractList);
         Album album = plugHander.queryAlbumById(param.getId());
         return AjaxResult.success(album);
@@ -124,6 +131,7 @@ public class MusicController {
      */
     @PostMapping("/getLyric")
     public AjaxResult getLyric(@RequestBody SearchMusicByIdParam param){
+        com.sqmusicplus.v3.members.MemberScope.requireProvider(param.getPlugName());
         SearchHanderAbstract plugHander = MusicUtils.getPlugHander(param.getPlugName(),searchHanderAbstractList);
         String lyric = plugHander.queryLyric(param.getId());
         return AjaxResult.success(lyric);
@@ -136,6 +144,7 @@ public class MusicController {
      */
     @PostMapping("/getDownloadUrl")
     public AjaxResult getDownloadUrl(@RequestBody PlugDownloadSongParam param){
+        com.sqmusicplus.v3.members.MemberScope.requireProvider(param.getPlugName());
         SearchHanderAbstract plugHander = MusicUtils.getPlugHander(param.getPlugName(),searchHanderAbstractList);
         PlugBrType brType = param.getBrType();
         if (brType==null){

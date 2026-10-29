@@ -67,6 +67,9 @@ public abstract class SearchHanderAbstract implements SearchHander, Serializable
 
     @Override
     public void dnonloadAndSaveToFile(DownloadInfo downloadInfo, SearchHander searchHander) {
+        try(com.sqmusicplus.v3.members.MemberScope scope=com.sqmusicplus.v3.members.MemberScope.job(downloadInfo)){dnonloadForMember(downloadInfo,searchHander);}
+    }
+    private void dnonloadForMember(DownloadInfo downloadInfo, SearchHander searchHander) {
         try {
             Music music = searchHander.querySongById(downloadInfo);
             try {
