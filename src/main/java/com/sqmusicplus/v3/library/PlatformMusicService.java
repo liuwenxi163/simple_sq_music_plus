@@ -97,26 +97,25 @@ public class PlatformMusicService {
         Cached saved=cache.get(p+":guess");long now=System.currentTimeMillis();JSONObject result;
         if(saved!=null&&saved.account.equals(identity)&&saved.expires>now&&(!refresh||saved.value.getLongValue("refreshAvailableAt")>now))result=JSONObject.parseObject(saved.value.toJSONString());
         else{
-            JSONObject cookie=JSONObject.parseObject(credential);JSONArray songs=new JSONArray(),ids=new JSONArray(),ownIds=new JSONArray();Set<String> seen=new HashSet<>();
-            if(refresh&&saved!=null&&saved.account.equals(identity)){ids.addAll(array(saved.value,"_songIds"));for(Object t:array(saved.value,"tracks"))seen.add(((JSONObject)t).getString("id"));}
+            JSONObject cookie=JSONObject.parseObject(credential);JSONArray songs=new JSONArray();Set<String> seen=new HashSet<>();
+            if(refresh&&saved!=null&&saved.account.equals(identity))for(Object t:array(saved.value,"tracks"))seen.add(((JSONObject)t).getString("id"));
             long deadline=now+18000;boolean partial=false;
             for(int batch=0;batch<4&&songs.size()<20;batch++){
                 if(System.currentTimeMillis()>deadline){partial=true;break;}
                 JSONObject data;
-                try{data=q(cookie,"music.radioProxy.MbTrackRadioSvr","get_radio_track",JSONObject.of("id",99,"num",5,"from",0,"scene",0,"song_ids",ids,"ext",JSONObject.of("bluetooth",""),"should_count_down",1));}
+                try{data=q(cookie,"music.radioProxy.MbTrackRadioSvr","get_radio_track",JSONObject.of("id",99,"num",5,"from",0,"scene",0,"song_ids",new JSONArray(),"ext",JSONObject.of("bluetooth",""),"should_count_down",1));}
                 catch(Exception e){if(songs.isEmpty())throw e;partial=true;break;}
                 for(Object entry:array(data,"tracks")){
                     JSONObject raw=(JSONObject)entry,track=AccountCollectionService.song(raw);
                     if(track==null||!seen.add(track.getString("id")))continue;
-                    songs.add(track);if(raw.getLongValue("id")>0){ids.add(raw.getLongValue("id"));ownIds.add(raw.getLongValue("id"));}
+                    songs.add(track);
                     if(songs.size()==20)break;
                 }
             }
             if(!identity.equals(digest(secret(p))))throw new IllegalStateException("PLATFORM_ACCOUNT_CHANGED");
             if(songs.isEmpty())throw new IllegalStateException("GUESS_RECOMMENDATION_UNAVAILABLE");
             long fetched=System.currentTimeMillis();
-            // Keep only this batch's IDs, so retained state stays bounded across refreshes.
-            result=JSONObject.of("provider",p,"title","猜你喜欢","tracks",songs,"updatedAt",fetched,"refreshAvailableAt",fetched+30000,"partial",partial,"_songIds",ownIds);
+            result=JSONObject.of("provider",p,"title","猜你喜欢","tracks",songs,"updatedAt",fetched,"refreshAvailableAt",fetched+30000,"partial",partial);
             cache.put(p+":guess",new Cached(identity,fetched+300000,result));result=JSONObject.parseObject(result.toJSONString());
         }
         result.remove("_songIds");result.put("playlists",ctx.getJSONArray("playlists"));result.put("likedIds",ctx.getJSONArray("likedIds"));return result;

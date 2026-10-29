@@ -30,7 +30,7 @@ public class LibraryExperienceTest {
                 Set<String> liked=new HashSet<>(Set.of("old"));int writes,guessCalls;boolean accept=true;
                 Fake(){super(qq,null,snapshots);}
                 @Override JSONObject q(JSONObject c,String module,String method,JSONObject param){
-                    if(method.equals("get_radio_track")){guessCalls++;JSONArray tracks=new JSONArray();for(int i=0;i<5;i++)tracks.add(JSONObject.of("id",guessCalls*10+i,"mid","radio"+guessCalls+i,"name","Recommendation","album",JSONObject.of("mid","album","name","Album")));return JSONObject.of("tracks",tracks);}
+                    if(method.equals("get_radio_track")){check(param.getIntValue("id")==99&&param.getJSONArray("song_ids").isEmpty(),"QQ radio accepts an empty song_ids envelope; deduplication stays local");guessCalls++;JSONArray tracks=new JSONArray();for(int i=0;i<5;i++)tracks.add(JSONObject.of("id",guessCalls*10+i,"mid","radio"+guessCalls+i,"name","Recommendation","album",JSONObject.of("mid","album","name","Album")));return JSONObject.of("tracks",tracks);}
                     if(method.equals("GetPlaylistByUin"))return JSONObject.of("total",1,"v_playlist",JSONArray.of(JSONObject.of("tid","42","dirId","201","dirName","Likes")));
                     if(method.equals("CgiGetDiss")){JSONArray songs=new JSONArray();for(String id:liked)songs.add(JSONObject.of("mid",id,"name","Song","id",55,"album",JSONObject.of("mid","album","name","Album")));return JSONObject.of("total_song_num",songs.size(),"songlist",songs);}
                     return JSONObject.of("track_info",JSONObject.of("mid",param.getString("song_mid"),"id",55,"name","Song","album",JSONObject.of("mid","album","name","Album")));
@@ -46,6 +46,6 @@ public class LibraryExperienceTest {
             fake.guess("qqvip",true);check(fake.guessCalls==4,"Rapid refresh uses current account cache");
             boolean unsupported=false;try{fake.guess("netease",false);}catch(IllegalArgumentException expected){unsupported=true;}check(unsupported,"QQ radio is never advertised for another platform");
         }finally{SqConfigCache.sqConfigMap.clear();SqConfigCache.sqConfigMap.putAll(before);java.nio.file.Files.deleteIfExists(dir.resolve("qq-collection.json"));java.nio.file.Files.delete(dir);}
-        System.out.println("LIBRARY_EXPERIENCE_TESTS_PASSED=19");
+        System.out.println("LIBRARY_EXPERIENCE_TESTS_PASSED=20");
     }
 }
