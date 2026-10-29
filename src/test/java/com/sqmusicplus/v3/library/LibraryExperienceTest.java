@@ -19,6 +19,8 @@ public class LibraryExperienceTest {
         check(PlatformMusicService.dailyId(JSONObject.of("id","bad","subtype",510))==null,"Validate recommendation identity");
         check(QqAccountTransport.sign("123").equals("zzcec1b555gzqzg7laztguyjl2bu20r6x1w50c55f60"),"Published zzc test vector");
         check(!QqAccountTransport.CLIENT.retryOnConnectionFailure(),"No automatic write replay");
+        check(PlatformMusicService.neSong(JSONObject.of("id",1,"name","Song")).getJSONArray("brTypes").isEmpty(),"Never invent source qualities");
+        check(PlatformMusicService.neSong(JSONObject.of("id",1,"h",JSONObject.of("size",100),"sq",JSONObject.of("size",0))).getJSONArray("brTypes").equals(JSONArray.of("NETEASE_MP3_320")),"Only advertised versions exposed");
         var before=new HashMap<>(SqConfigCache.sqConfigMap);java.nio.file.Path dir=java.nio.file.Files.createTempDirectory("sq-experience-test");
         try{
             SqConfig setting=new SqConfig();setting.setConfigKey("plug.qqvip.cookie");setting.setConfigValue("{\"musicid\":\"1\",\"musickey\":\"fixture\",\"loginType\":2}");SqConfigCache.sqConfigMap.put(setting.getConfigKey(),setting);
@@ -39,6 +41,6 @@ public class LibraryExperienceTest {
             fake.accept=false;boolean unconfirmed=false;try{fake.change("qqvip","fresh",null,true);}catch(IllegalStateException expected){unconfirmed=expected.getMessage().equals("PLATFORM_WRITE_UNCONFIRMED");}check(unconfirmed,"Success code without changed membership is not success");
             fake.accept=true;check(fake.change("qqvip","fresh",null,true).getBooleanValue("confirmed"),"Write confirmed by subsequent read");
         }finally{SqConfigCache.sqConfigMap.clear();SqConfigCache.sqConfigMap.putAll(before);java.nio.file.Files.deleteIfExists(dir.resolve("qq-collection.json"));java.nio.file.Files.delete(dir);}
-        System.out.println("LIBRARY_EXPERIENCE_TESTS_PASSED=13");
+        System.out.println("LIBRARY_EXPERIENCE_TESTS_PASSED=15");
     }
 }
